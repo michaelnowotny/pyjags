@@ -15,18 +15,16 @@ import pyjags
 
 
 class TestModules(unittest.TestCase):
-
     def test_get_modules_dir(self):
         self.assertIsNotNone(pyjags.get_modules_dir())
 
     def test_module_loading(self):
-        pyjags.load_module('basemod')
-        pyjags.load_module('bugs')
-        pyjags.load_module('lecuyer')
+        pyjags.load_module("basemod")
+        pyjags.load_module("bugs")
+        pyjags.load_module("lecuyer")
 
-        self.assertEqual(
-            ['basemod', 'bugs', 'lecuyer'],
-            pyjags.list_modules())
+        self.assertEqual(["basemod", "bugs", "lecuyer"], pyjags.list_modules())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

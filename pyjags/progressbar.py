@@ -9,7 +9,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-__all__ = ['const_time_partition', 'progressbar']
+__all__ = ["const_time_partition", "progressbar"]
 
 import math
 import sys
@@ -19,15 +19,17 @@ from datetime import timedelta
 from functools import wraps
 
 
-default_timer = getattr(time, 'monotonic', time.time)
+default_timer = getattr(time, "monotonic", time.time)
 
 
 def synchronized(func):
     lock = threading.Lock()
+
     @wraps(func)
     def inner(*args, **kwargs):
         with lock:
             func(*args, **kwargs)
+
     return inner
 
 
@@ -79,7 +81,6 @@ def const_time_partition(iterations, period, timer=default_timer):
 
 
 class EmptyProgressBar:
-
     def __init__(self, *args, **kwargs):
         pass
 
@@ -94,14 +95,21 @@ class EmptyProgressBar:
 
 
 class ProgressBar:
+    FORMAT = (
+        "iterations {self.iterations_done} "
+        "of {self.iterations_total}, "
+        "elapsed {self.elapsed}, "
+        "remaining {self.remaining}"
+    )
 
-    FORMAT = 'iterations {self.iterations_done} ' \
-             'of {self.iterations_total}, ' \
-             'elapsed {self.elapsed}, ' \
-             'remaining {self.remaining}'
-
-    def __init__(self, steps, header='', refresh_seconds=0.5,
-                 file=sys.stdout, timer=default_timer):
+    def __init__(
+        self,
+        steps,
+        header="",
+        refresh_seconds=0.5,
+        file=sys.stdout,
+        timer=default_timer,
+    ):
         self.format = header + self.FORMAT
         self.file = file
         self.isatty = file.isatty()
@@ -119,7 +127,7 @@ class ProgressBar:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.update(0, force=True)
         if self.isatty:
-            self.file.write('\n')
+            self.file.write("\n")
             self.file.flush()
 
     @synchronized
@@ -139,12 +147,12 @@ class ProgressBar:
             # 2. Overwrite previous content (necessary when new line is shorter)
             # 3. Move to the beginning again.
             n = self.previous_length
-            self.file.write('\b' * n + ' ' * n + '\b' * n)
+            self.file.write("\b" * n + " " * n + "\b" * n)
             self.file.write(line)
             self.previous_length = len(line)
         else:
             self.file.write(line)
-            self.file.write('\n')
+            self.file.write("\n")
         self.file.flush()
 
     @property
@@ -166,7 +174,11 @@ class ProgressBar:
     @property
     def time_per_iteration(self):
         elapsed_seconds = self.last_seconds - self.start_seconds
-        return elapsed_seconds / self.iterations_done if self.iterations_done else float('Inf')
+        return (
+            elapsed_seconds / self.iterations_done
+            if self.iterations_done
+            else float("Inf")
+        )
 
     @property
     def remaining(self):
@@ -179,9 +191,11 @@ class ProgressBar:
 
 def progress_bar_factory(enable, *args, **kwargs):
     type = ProgressBar if enable else EmptyProgressBar
+
     def factory(steps, *fargs, **fkwargs):
         all_args = fargs + args
         all_kwargs = dict(kwargs)
         all_kwargs.update(fkwargs)
         return type(steps, *all_args, **all_kwargs)
+
     return factory

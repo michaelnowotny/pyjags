@@ -1,0 +1,16 @@
+[project]
+name = "pyjags"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "deepdish>=0.3.7",
+    "numpy>=2.3.1",
+    "pybind11>=3.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.4",
+]
