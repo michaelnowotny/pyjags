@@ -89,7 +89,7 @@ class RHatDeviationCriterion:
 
         maximum_rhat_deviation = max(
             abs(value["data"] - 1.0)
-            for key, value in rhat.to_dict()["data_vars"].items()
+            for key, value in rhat.to_dict()["data_vars"].items()  # type: ignore
         )
 
         if verbose:
@@ -143,7 +143,7 @@ class EffectiveSampleSizeAndRHatCriterion:
 
         maximum_rhat_deviation = max(
             abs(value["data"] - 1.0)
-            for key, value in rhat.to_dict()["data_vars"].items()
+            for key, value in rhat.to_dict()["data_vars"].items()  # type: ignore
         )
         if verbose:
             print(f"minimum ess = {minimum_ess}")
@@ -164,7 +164,7 @@ def sample_until(
     previous_samples: tp.Optional[tp.Dict[str, np.ndarray]] = None,
     chunk_size: int = 5000,
     max_iterations: int = 250000,
-    vars: tp.Sequence[str] = None,
+    vars: tp.Sequence[str] | None = None,
     thin: int = 1,
     monitor_type: str = "trace",
     verbose: bool = False,

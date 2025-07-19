@@ -1,4 +1,4 @@
-import pyjags
+import src
 import numpy as np
 
 np.random.seed(0)
@@ -24,7 +24,7 @@ model {
 }
 """
 
-model = pyjags.Model(code, data=dict(x=x, y=y, N=N), chains=4)
+model = src.Model(code, data=dict(x=x, y=y, N=N), chains=4)
 samples = model.sample(5000, vars=["alpha", "beta", "sigma"])
 
 

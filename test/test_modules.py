@@ -9,22 +9,16 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-import unittest
-
 import pyjags
 
 
-class TestModules(unittest.TestCase):
+class TestModules:
     def test_get_modules_dir(self):
-        self.assertIsNotNone(pyjags.get_modules_dir())
+        assert pyjags.get_modules_dir() is not None
 
     def test_module_loading(self):
         pyjags.load_module("basemod")
         pyjags.load_module("bugs")
         pyjags.load_module("lecuyer")
 
-        self.assertEqual(["basemod", "bugs", "lecuyer"], pyjags.list_modules())
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert ["basemod", "bugs", "lecuyer"] == pyjags.list_modules()

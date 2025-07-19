@@ -6,3 +6,4 @@ doc/_build
 
 .idea/
 /pyjags.egg-info/
+tmp/

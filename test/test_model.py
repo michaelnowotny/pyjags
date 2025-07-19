@@ -11,20 +11,14 @@
 
 import os.path
 import sys
-import unittest
+import pytest
 
 import numpy as np
 
 import pyjags
 
 
-class ParametrizedTestCase(unittest.TestCase):
-    def __init__(self, method_name, **params):
-        super(ParametrizedTestCase, self).__init__(method_name)
-        self.__dict__.update(params)
-
-
-class TestModel(unittest.TestCase):
+class TestModel:
     def model(self, *args, **kwargs):
         """Create new model instance."""
         return pyjags.Model(*args, **kwargs)
@@ -40,7 +34,7 @@ class TestModel(unittest.TestCase):
         self.model(file=path)
 
     def test_model_is_required(self):
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             self.model()
 
     def test_random_number_generator_seed(self):
@@ -75,7 +69,7 @@ class TestModel(unittest.TestCase):
         actual_names = [
             v for state in model.state for k, v in state.items() if k == ".RNG.name"
         ]
-        self.assertEqual(expected_names, actual_names)
+        assert expected_names == actual_names
 
     def test_empty_array(self):
         # This used to throw an exception.
@@ -85,12 +79,12 @@ class TestModel(unittest.TestCase):
 
     def test_invalid_length_of_initial_value_list_throws_exception(self):
         model = "model { x ~ dbern(1) }"
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             self.model(model, chains=2, init=[dict(x=1)])
 
     def test_invalid_type_of_init_value_list(self):
         code = "model { x ~ dbern(1) }"
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             self.model(code, chains=2, init=1234)
 
     def test_model_variables(self):
@@ -107,7 +101,7 @@ class TestModel(unittest.TestCase):
         """
 
         model = self.model(code)
-        self.assertEqual({"a", "b", "x"}, set(model.variables))
+        assert {"a", "b", "x"} == set(model.variables)
 
     def test_model_data(self):
         code = """
@@ -128,7 +122,7 @@ class TestModel(unittest.TestCase):
         m = self.model(code, data=data)
         model_data = m.data
 
-        self.assertEqual(data.keys(), model_data.keys())
+        assert data.keys() == model_data.keys()
         for var in data.keys():
             np.testing.assert_equal(data[var], model_data[var])
 
@@ -145,9 +139,9 @@ class TestModel(unittest.TestCase):
         model = self.model(code, data=dict(x=np.zeros(10)), chains=chains)
 
         parameters = model.parameters
-        self.assertEqual(chains, len(parameters))
+        assert chains == len(parameters)
         names = set(parameters[0].keys())
-        self.assertEqual({"mu", ".RNG.name", ".RNG.state"}, names)
+        assert {"mu", ".RNG.name", ".RNG.state"} == names
 
     def test_samples_shape(self):
         code = """
@@ -169,8 +163,8 @@ class TestModel(unittest.TestCase):
         m = self.model(code, data=data, chains=chains)
         s = m.sample(iterations)
 
-        self.assertEqual(s["x"].shape, (3, 5, iterations, chains))
-        self.assertEqual(s["mu"].shape, (3, iterations, chains))
+        assert s["x"].shape == (3, 5, iterations, chains)
+        assert s["mu"].shape == (3, iterations, chains)
 
     def test_missing_input_data(self):
         code = """
@@ -194,10 +188,9 @@ class TestModel(unittest.TestCase):
         np.testing.assert_equal([0] * n * c, x1.flatten())
         np.testing.assert_equal([1] * n * c, x2.flatten())
         # Missing value, samples should vary between 0 and 1
-        self.assertIn(0, x3)
-        self.assertIn(1, x3)
+        assert 0 in x3
+        assert 1 in x3
 
-    @unittest.skipIf(pyjags.version() < (4, 0, 0), "Not supported before JAGS 4.0.0")
     def test_missing_sample_data(self):
         code = """
         model {
@@ -214,18 +207,18 @@ class TestModel(unittest.TestCase):
         x3 = x[2]
 
         # x[2] should be completely masked
-        self.assertTrue(np.all(x2.mask))
+        assert np.all(x2.mask)
         # x[1] and x[3] should be plain unmasked numpy arrays
-        self.assertFalse(np.ma.is_mask(x1))
-        self.assertFalse(np.ma.is_mask(x3))
+        assert not np.ma.is_mask(x1)
+        assert not np.ma.is_mask(x3)
 
     def test_unused_variables_throws_exception(self):
         code = "model { x ~ dbern(0.5) }"
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             self.model(code, data=dict(x=1, y=2))
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             self.model(code, init=dict(x=1, y=2))
 
 
@@ -243,7 +236,3 @@ if sys.version_info[0] > 2:
     class TestModelWithChainsPerThread(TestModel):
         def model(self, *args, **kwargs):
             return pyjags.Model(*args, threads=3, chains_per_thread=2, **kwargs)
-
-
-if __name__ == "__main__":
-    unittest.main()

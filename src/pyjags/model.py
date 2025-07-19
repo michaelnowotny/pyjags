@@ -12,7 +12,7 @@
 
 __all__ = ["Model"]
 
-import collections
+import collections.abc
 import contextlib
 import numpy as np
 import sys
@@ -361,7 +361,7 @@ class Model:
 
     def _update_sequential(self, progress, iterations):
         for steps in const_time_partition(iterations, self.refresh_seconds):
-            self.console.update(steps)
+            self.console.update(steps)  # type: ignore
             progress.update(self.chains * steps)
 
     def _update_parallel(self, progress, iterations):
@@ -383,7 +383,8 @@ class Model:
             fs = [
                 executor.submit(update, console, chains)
                 for console, chains in zip(
-                    self.console.consoles, self.console.chains_per_console
+                    self.console.consoles,  # type: ignore
+                    self.console.chains_per_console,  # type: ignore
                 )
             ]
             try:

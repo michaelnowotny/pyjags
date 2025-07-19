@@ -1,16 +1,31 @@
+[build-system]
+requires = ["scikit-build-core", "pybind11", "numpy"]
+build-backend = "scikit_build_core.build"
+
 [project]
 name = "pyjags"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python interface to JAGS"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "arviz>=0.22.0",
     "deepdish>=0.3.7",
     "numpy>=2.3.1",
     "pybind11>=3.0.0",
+    "pytest>=8.4.1",
 ]
 
 [dependency-groups]
-dev = [
-    "ruff>=0.12.4",
-]
+dev = ["ruff>=0.12.4"]
+
+[tool.scikit-build]
+cmake.version = ">=3.15"
+cmake.build-type = "Release"
+wheel.expand-macos-universal-tags = true
+sdist.include = ["src/pyjags/console.cpp"]
+sdist.exclude = ["test", "notebooks", "tmp", "doc"]
+
+[tool.uv.sources]
+deepdish = { git = "https://github.com/adam-viray/deepdish.git" }
+

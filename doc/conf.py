@@ -60,10 +60,10 @@ author = "Tomasz Miąsko"
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-import pyjags
+import src
 
 # The short X.Y version.
-version = pyjags.__version__.split("+")[0]
+version = src.__version__.split("+")[0]
 # The full version, including alpha/beta/rc tags.
 release = version
 
