@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.15)
 project(pyjags LANGUAGES CXX)
 
+message(STATUS "CONDA_PREFIX environment variable: $ENV{CONDA_PREFIX}")
+
 # Find Python and NumPy
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module NumPy)
 find_package(pybind11 REQUIRED)
 
 # Find JAGS (optional for development)
+message(STATUS "Looking for JAGS in conda prefix: $ENV{CONDA_PREFIX}")
+
 find_path(JAGS_INCLUDE_DIR Console.h
     PATH_SUFFIXES JAGS
     PATHS 
@@ -13,15 +17,22 @@ find_path(JAGS_INCLUDE_DIR Console.h
         /usr/local/include
         /opt/homebrew/include
         /usr/include
+        $ENV{CONDA_PREFIX}/include
 )
 
-find_library(JAGS_LIBRARY NAMES JAGS
+message(STATUS "JAGS_INCLUDE_DIR found: ${JAGS_INCLUDE_DIR}")
+
+find_library(JAGS_LIBRARY NAMES JAGS jags libJAGS libjags
     PATHS
         /opt/homebrew/opt/jags/lib
         /usr/local/lib
         /opt/homebrew/lib
         /usr/lib
+        $ENV{CONDA_PREFIX}/lib
+        $ENV{CONDA_PREFIX}/lib/JAGS
 )
+
+message(STATUS "JAGS_LIBRARY found: ${JAGS_LIBRARY}")
 
 
 # Option to build without JAGS for development
@@ -33,9 +44,7 @@ if(BUILD_WITHOUT_JAGS)
     pybind11_add_module(console src/pyjags/console.cpp)
     target_compile_definitions(console PRIVATE NO_JAGS)
 elseif(NOT JAGS_INCLUDE_DIR OR NOT JAGS_LIBRARY)
-    message(STATUS "JAGS not found. Searched in:")
-    message(STATUS "  Headers: /homebrew/opt/jags/include, /usr/local/include, /opt/homebrew/include, /usr/include")
-    message(STATUS "  Libraries: /homebrew/opt/jags/lib, /usr/local/lib, /opt/homebrew/lib, /usr/lib")
+    message(STATUS "JAGS not found")
     message(STATUS "")
     message(STATUS "To install JAGS on macOS:")
     message(STATUS "  brew install jags")
@@ -52,6 +61,12 @@ else()
     pybind11_add_module(console src/pyjags/console.cpp)
     target_include_directories(console PRIVATE ${JAGS_INCLUDE_DIR})
     target_link_libraries(console PRIVATE ${JAGS_LIBRARY} Python3::NumPy)
+    
+    # Add RPATH so the extension can find JAGS at runtime
+    set_target_properties(console PROPERTIES
+        BUILD_RPATH "$ENV{CONDA_PREFIX}/lib"
+        INSTALL_RPATH "$ENV{CONDA_PREFIX}/lib"
+    )
 endif()
 
 # Install the extension to the correct location

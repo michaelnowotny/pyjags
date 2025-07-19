@@ -26,6 +26,12 @@ Using `uv` package manager:
     uv add git+https://github.com/mschulist/pyjags.git
 ```
 
+### Some Notes
+
+When installing, you must have JAGS installed. On mac, using homebrew `brew install jags` should work. On Linux, you may or may not need to update the `CMakeLists.txt` file to point to the correct header and lib files, or it may work...
+
+If you install JAGS using conda, make sure that you are in the correct conda environment and then run `uv sync`. It _should_ find the header and lib files and build correctly then.
+
 ## Useful Links
 
 * Package on the Python Package Index <https://pypi.python.org/pypi/pyjags>
