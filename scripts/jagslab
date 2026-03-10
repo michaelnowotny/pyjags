@@ -1,0 +1,333 @@
+#!/bin/bash
+
+# jagslab - PyJAGS Development Environment Management Script
+# Manages Docker container for PyJAGS development, testing, and Jupyter notebooks.
+
+set -e
+
+# Detect if running inside the Docker container
+if [ -f "/.dockerenv" ] || grep -qsm1 'docker\|containerd' /proc/1/cgroup 2>/dev/null; then
+    INSIDE_CONTAINER=true
+    PROJECT_ROOT="/pyjags"
+else
+    INSIDE_CONTAINER=false
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+fi
+
+cd "$PROJECT_ROOT" || exit 1
+
+# Auto-create .env from .env.example if it doesn't exist
+if [ "$INSIDE_CONTAINER" = false ] && [ ! -f .env ] && [ -f .env.example ]; then
+    cp .env.example .env
+    echo -e "${YELLOW}[WARN]${NC} Created .env from .env.example (edit to customize)"
+fi
+
+# Load .env if present
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+
+SERVICE_NAME="pyjags"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; }
+blue()  { echo -e "${BLUE}$1${NC}"; }
+
+# ---------------------------------------------------------------------------
+# Container helpers
+# ---------------------------------------------------------------------------
+
+is_container_running() {
+    docker compose ps --services --filter "status=running" 2>/dev/null | grep -q "$SERVICE_NAME"
+}
+
+ensure_container() {
+    if ! is_container_running; then
+        info "Starting container..."
+        docker compose up -d
+    fi
+}
+
+# Check if pyjags is importable inside the container
+is_pyjags_installed() {
+    if [ "$INSIDE_CONTAINER" = true ]; then
+        python -c "import pyjags" 2>/dev/null
+    else
+        docker compose exec -T "$SERVICE_NAME" python -c "import pyjags" 2>/dev/null
+    fi
+}
+
+ensure_installed() {
+    if ! is_pyjags_installed; then
+        info "Installing pyjags in editable mode..."
+        if [ "$INSIDE_CONTAINER" = true ]; then
+            pip install --no-build-isolation -e . -q
+        else
+            docker compose exec -T "$SERVICE_NAME" pip install --no-build-isolation -e . -q
+        fi
+    fi
+}
+
+require_host() {
+    if [ "$INSIDE_CONTAINER" = true ]; then
+        error "This command must be run from the host, not inside the container."
+        return 1
+    fi
+}
+
+# Run a command inside the container (or directly if already inside)
+run_in_container() {
+    if [ "$INSIDE_CONTAINER" = true ]; then
+        "$@"
+    else
+        ensure_container
+        docker compose exec "$SERVICE_NAME" "$@"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+cmd_build() {
+    require_host
+    info "Building base image..."
+    docker build -t pyjags-base:latest -f Dockerfile .
+    info "Building lab image..."
+    docker compose build
+    info "Build complete."
+}
+
+cmd_rebuild() {
+    require_host
+    info "Rebuilding base image from scratch (no cache)..."
+    docker build --no-cache -t pyjags-base:latest -f Dockerfile .
+    info "Rebuilding lab image from scratch (no cache)..."
+    docker compose build --no-cache
+    info "Rebuild complete."
+}
+
+cmd_start() {
+    if [ "$INSIDE_CONTAINER" = true ]; then
+        # Inside container: just launch Jupyter directly
+        ensure_installed
+        info "Starting Jupyter Lab at http://localhost:8888"
+        info "Press Ctrl+C to stop."
+        jupyter lab \
+            --ip=0.0.0.0 \
+            --port=8888 \
+            --no-browser \
+            --allow-root \
+            --notebook-dir=/app/notebooks
+        return
+    fi
+
+    ensure_container
+    ensure_installed
+
+    local host_port="${JAGSLAB_PORT:-8888}"
+    info "Starting Jupyter Lab at http://localhost:${host_port}"
+    info "Press Ctrl+C to stop."
+    docker compose exec "$SERVICE_NAME" jupyter lab \
+        --ip=0.0.0.0 \
+        --port=8888 \
+        --no-browser \
+        --allow-root \
+        --notebook-dir=/app/notebooks 2>&1 \
+        | sed "s|://127\.0\.0\.1:8888|://localhost:${host_port}|g; s|://[^:]*:8888|://localhost:${host_port}|g"
+}
+
+cmd_stop() {
+    require_host
+
+    if ! is_container_running; then
+        warn "Container is not running."
+        return 0
+    fi
+
+    info "Stopping container..."
+    docker compose down
+    info "Container stopped."
+}
+
+cmd_test() {
+    if [ "$INSIDE_CONTAINER" = false ]; then
+        ensure_container
+        ensure_installed
+    fi
+
+    local test_args=("$@")
+
+    # Default: discover all tests verbosely
+    if [ ${#test_args[@]} -eq 0 ]; then
+        test_args=("discover" "test/" "-v")
+    fi
+
+    info "Running tests..."
+    run_in_container python -m unittest "${test_args[@]}"
+}
+
+cmd_install() {
+    if [ "$INSIDE_CONTAINER" = false ]; then
+        ensure_container
+    fi
+
+    info "Installing pyjags in editable mode (compiles C++ extension)..."
+    if [ "$INSIDE_CONTAINER" = true ]; then
+        pip install --no-build-isolation -e .
+    else
+        docker compose exec "$SERVICE_NAME" pip install --no-build-isolation -e .
+    fi
+    info "Install complete."
+}
+
+cmd_shell() {
+    if [ "$INSIDE_CONTAINER" = true ]; then
+        error "Already inside the container."
+        return 1
+    fi
+
+    ensure_container
+    ensure_installed
+    info "Entering container shell (type 'exit' to leave)..."
+    docker compose exec "$SERVICE_NAME" /bin/bash
+}
+
+cmd_python() {
+    if [ "$INSIDE_CONTAINER" = false ]; then
+        ensure_container
+        ensure_installed
+    fi
+
+    run_in_container python "$@"
+}
+
+cmd_status() {
+    require_host
+    info "Container status:"
+    docker compose ps
+}
+
+cmd_logs() {
+    require_host
+    info "Showing container logs (Ctrl+C to exit)..."
+    docker compose logs -f "$SERVICE_NAME"
+}
+
+cmd_clean() {
+    info "Cleaning build artifacts..."
+    run_in_container bash -c "\
+        find /pyjags -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; \
+        rm -rf /pyjags/*.egg-info /pyjags/build /pyjags/dist; \
+        rm -f /pyjags/pyjags/*.so; \
+        echo 'Done.'"
+}
+
+cmd_version() {
+    if [ "$INSIDE_CONTAINER" = false ]; then
+        ensure_container
+        ensure_installed
+    fi
+
+    run_in_container python -c "
+import pyjags
+print(f'pyjags:  {pyjags.__version__}')
+print(f'JAGS:    {\".\".join(map(str, pyjags.version()))}')
+
+import sys
+print(f'Python:  {sys.version.split()[0]}')
+
+import numpy
+print(f'numpy:   {numpy.__version__}')
+"
+}
+
+cmd_help() {
+    cat << 'EOF'
+jagslab - PyJAGS Development Environment
+
+Usage: jagslab <command> [options]
+
+Commands:
+  start             Start Jupyter Lab (auto-starts container and installs pyjags)
+  stop              Stop the container
+  test [args]       Run the test suite
+  install           Install/reinstall pyjags (recompiles C++ extension)
+  shell             Open a bash shell in the container
+  python [args]     Start Python REPL or run a script in the container
+  build             Build the Docker image
+  rebuild           Rebuild image from scratch (no Docker cache)
+  status            Show container status
+  logs              Tail container logs
+  clean             Remove build artifacts (__pycache__, .egg-info, .so)
+  version           Show pyjags, JAGS, Python, and numpy versions
+  help              Show this help message
+
+Examples:
+  jagslab build                                     # Build the Docker image (first time)
+  jagslab start                                     # Launch Jupyter Lab at http://localhost:8888
+  jagslab stop                                      # Stop everything
+
+  jagslab test                                      # Run all tests
+  jagslab test test.test_model                      # Run one test module
+  jagslab test test.test_model.TestModel.test_samples_shape   # Run a single test
+
+  jagslab install                                   # Reinstall after changing console.cc
+  jagslab shell                                     # Interactive shell for debugging
+  jagslab python                                    # Python REPL with pyjags loaded
+  jagslab python notebooks/example.py               # Run a script
+
+  jagslab version                                   # Check installed versions
+  jagslab clean                                     # Remove build artifacts
+  jagslab rebuild                                   # Full rebuild after Dockerfile changes
+
+Notes:
+  - Most commands auto-start the container and install pyjags if needed.
+  - After editing pyjags/*.py files, changes take effect immediately (editable install).
+  - After editing pyjags/console.cc, run 'jagslab install' to recompile the C++ extension.
+  - Jupyter notebooks are served from ./notebooks/ on the host.
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# Dispatcher
+# ---------------------------------------------------------------------------
+
+case "${1:-}" in
+    start)                  cmd_start ;;
+    stop)                   cmd_stop ;;
+    test)       shift;      cmd_test "$@" ;;
+    install)                cmd_install ;;
+    shell|console)          cmd_shell ;;
+    python)     shift;      cmd_python "$@" ;;
+    build)                  cmd_build ;;
+    rebuild)                cmd_rebuild ;;
+    status)                 cmd_status ;;
+    logs)                   cmd_logs ;;
+    clean)                  cmd_clean ;;
+    version)                cmd_version ;;
+    help|--help|-h)         cmd_help ;;
+    "")
+        error "No command specified."
+        echo ""
+        cmd_help
+        exit 1
+        ;;
+    *)
+        error "Unknown command: $1"
+        echo ""
+        cmd_help
+        exit 1
+        ;;
+esac

@@ -10,7 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-import deepdish as dd
+import h5py
 import numpy as np
 import typing as tp
 
@@ -31,10 +31,10 @@ def save_samples_dictionary_to_file(
     compression: boolean indicating whether or not to use data compression
 
     """
-    if compression:
-        dd.io.save(filename, samples, compression='blosc')
-    else:
-        dd.io.save(filename, samples, compression=None)
+    comp = 'gzip' if compression else None
+    with h5py.File(filename, 'w') as f:
+        for key, value in samples.items():
+            f.create_dataset(key, data=np.asarray(value), compression=comp)
 
 
 def load_samples_dictionary_from_file(filename: str) \
@@ -52,4 +52,8 @@ def load_samples_dictionary_from_file(filename: str) \
     a dictionary mapping variable names to Numpy arrays with shape
              (parameter_dimension, chain_length, number_of_chains)
     """
-    return dd.io.load(filename)
+    result = {}
+    with h5py.File(filename, 'r') as f:
+        for key in f.keys():
+            result[key] = f[key][()]
+    return result

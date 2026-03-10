@@ -1,0 +1,11 @@
+FROM pyjags-base:latest
+
+# Install Jupyter and notebook dependencies
+COPY requirements-lab.txt /tmp/requirements-lab.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-lab.txt \
+    && rm /tmp/requirements-lab.txt
+
+EXPOSE 8888
+
+# Keep container running
+CMD ["tail", "-f", "/dev/null"]

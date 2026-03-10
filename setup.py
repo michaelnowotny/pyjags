@@ -144,7 +144,7 @@ if __name__ == '__main__':
           install_requires=[
               'numpy',
               'arviz',
-              'deepdish'
+              'h5py'
           ],
           test_suite='test',
           )

@@ -6,3 +6,5 @@ doc/_build
 
 .idea/
 /pyjags.egg-info/
+.env
+doc/planning/
