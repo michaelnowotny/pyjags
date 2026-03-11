@@ -2,4 +2,3 @@ jupyterlab
 seaborn
 scikit-learn
 line_profiler
-# pymc  # uncomment after Eight Schools.ipynb is migrated from pymc3 to pymc v5

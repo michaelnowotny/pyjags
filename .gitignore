@@ -8,3 +8,4 @@ doc/_build
 /pyjags.egg-info/
 .env
 doc/planning/
+scripts/output/
