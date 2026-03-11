@@ -4,15 +4,23 @@ hierarchical models using Markov Chain Monte Carlo (MCMC) simulation.
 
 PyJAGS adds the following features on top of JAGS:
 
-* Multicore support for parallel simulation of multiple Markov chains (See Jupyter Notebook [Advanced Functionality](notebooks/Advanced%20Functionality.ipynb)
-* Saving sample MCMC chains to and restoring from HDF5 files
-* Functionality to merge samples along iterations or across chains so that sampling can be resumed in consecutive chunks until convergence criteria are satisfied
-* Connectivity to the Bayesian analysis and visualization package Arviz
+* Multicore support for parallel simulation of multiple Markov chains
+* Built-in ArviZ integration via `pyjags.from_pyjags()` for diagnostics and visualization
+* Incremental sampling with automatic convergence detection (ESS and R-hat criteria)
+* Saving and restoring MCMC sample chains to/from HDF5 files
+* Merging samples along iterations or across chains for resumed sampling
 
 License: GPLv2
 
-## Supported Platforms
-PyJAGS works on macOS and Linux. Windows is not currently supported.
+## Compatibility
+
+| Component | Supported Versions |
+|-----------|-------------------|
+| Python | 3.10 -- 3.12 |
+| NumPy | 1.x and 2.x |
+| ArviZ | 1.0+ |
+| macOS | Intel and Apple Silicon (M1/M2/M3/M4) |
+| Linux | Debian/Ubuntu (tested), other distributions (untested) |
 
 ## Installation
 
@@ -101,7 +109,7 @@ Install JAGS using your distribution's package manager:
 # Debian/Ubuntu
 sudo apt-get install jags pkg-config
 
-# Fedora/RHEL
+# Fedora/RHEL (untested — package names may differ)
 sudo dnf install jags jags-devel pkgconf
 ```
 
@@ -122,9 +130,17 @@ pip install numpy setuptools pybind11
 pip install --no-build-isolation -e .
 ```
 
-## Running the Notebooks
+## Notebooks
 
-The `notebooks/` directory contains Jupyter notebooks demonstrating PyJAGS features.
+The `notebooks/` directory contains Jupyter notebooks demonstrating PyJAGS features:
+
+| Notebook | Description |
+|----------|-------------|
+| [Trading Cost Estimation](notebooks/Trading%20Cost%20Estimation.ipynb) | Bayesian estimation of bid-ask spreads using Hasbrouck's model (with and without a market factor) |
+| [Logistic Regression](notebooks/Logistic%20Regression.ipynb) | Bayesian logistic regression with MCMC diagnostics |
+| [Eight Schools](notebooks/Eight%20Schools.ipynb) | Classic hierarchical model with prior/posterior analysis, warmup splitting, and LOO |
+| [Advanced Functionality](notebooks/Advanced%20Functionality.ipynb) | Parallel chains, HDF5 persistence, chain merging, and incremental sampling until convergence |
+
 If you have a native installation (macOS or Linux with JAGS and `.venv` set up as
 described above), you can run Jupyter Lab directly without Docker:
 
@@ -136,6 +152,29 @@ On first run, this installs notebook dependencies (JupyterLab, seaborn, scikit-l
 into your `.venv` and registers a **"Python 3.12 (pyjags)"** Jupyter kernel that
 points to the correct Python environment. The notebooks are pre-configured to use
 this kernel.
+
+## ArviZ Integration
+
+PyJAGS includes a built-in converter for [ArviZ](https://www.arviz.org/) 1.0+.
+Use `pyjags.from_pyjags()` to convert sample dictionaries returned by
+`Model.sample()` into ArviZ `DataTree` objects for diagnostics and visualization:
+
+```python
+import pyjags
+import arviz as az
+
+model = pyjags.Model(code=model_code, data=data, chains=4)
+model.sample(1000, vars=[])                     # burn-in
+samples = model.sample(5000, vars=['mu', 'sigma'])
+
+idata = pyjags.from_pyjags(samples)             # -> xarray.DataTree
+az.summary(idata)
+az.plot_trace(idata)
+```
+
+The converter also supports prior samples, log-likelihood extraction, and warmup
+splitting. See the [Eight Schools](notebooks/Eight%20Schools.ipynb) notebook for a
+complete example.
 
 ## Development Environment (jagslab)
 
