@@ -9,3 +9,5 @@ doc/_build
 .env
 doc/planning/
 scripts/output/
+.ipynb_checkpoints/
+*.hdf5
