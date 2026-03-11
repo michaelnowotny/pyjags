@@ -99,7 +99,7 @@ Install JAGS using your distribution's package manager:
 
 ```bash
 # Debian/Ubuntu
-sudo apt-get install jags libjags-dev pkg-config
+sudo apt-get install jags pkg-config
 
 # Fedora/RHEL
 sudo dnf install jags jags-devel pkgconf
