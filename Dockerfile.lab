@@ -5,6 +5,9 @@ COPY requirements-lab.txt /tmp/requirements-lab.txt
 RUN pip install --no-cache-dir -r /tmp/requirements-lab.txt \
     && rm /tmp/requirements-lab.txt
 
+# Register a "pyjags" Jupyter kernel so notebooks work without kernel switching
+RUN python -m ipykernel install --name pyjags --display-name "Python 3.12 (pyjags)"
+
 EXPOSE 8888
 
 # Keep container running

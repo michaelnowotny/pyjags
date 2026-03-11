@@ -122,13 +122,28 @@ pip install numpy setuptools pybind11
 pip install --no-build-isolation -e .
 ```
 
+## Running the Notebooks
+
+The `notebooks/` directory contains Jupyter notebooks demonstrating PyJAGS features.
+If you have a native installation (macOS or Linux with JAGS and `.venv` set up as
+described above), you can run Jupyter Lab directly without Docker:
+
+```bash
+./scripts/jagslab lab
+```
+
+On first run, this installs notebook dependencies (JupyterLab, seaborn, scikit-learn)
+into your `.venv` and registers a **"Python 3.12 (pyjags)"** Jupyter kernel that
+points to the correct Python environment. The notebooks are pre-configured to use
+this kernel.
+
 ## Development Environment (jagslab)
 
-PyJAGS includes a Docker-based development environment managed by the `jagslab` CLI
-script. This provides a reproducible setup with JAGS, Python 3.12, and Jupyter Lab
+PyJAGS also includes a Docker-based development environment managed by the `jagslab`
+CLI script. This provides a reproducible setup with JAGS, Python 3.12, and Jupyter Lab
 without requiring a local JAGS installation.
 
-### Quick Start
+### Quick Start (Docker)
 
 ```bash
 # 1. Copy the environment configuration
@@ -148,8 +163,9 @@ cp .env.example .env          # Edit .env to customize (e.g., Jupyter port)
 
 | Command | Description |
 |---------|-------------|
-| `start` | Start Jupyter Lab (auto-starts container and installs pyjags) |
-| `stop` | Stop the container |
+| `start` | Start Jupyter Lab via Docker (auto-starts container and installs pyjags) |
+| `lab` | Start Jupyter Lab natively from `.venv` (no Docker required) |
+| `stop` | Stop the Docker container |
 | `test [args]` | Run the test suite |
 | `install` | Install/reinstall pyjags (recompiles C++ extension) |
 | `shell` | Open a bash shell in the container |

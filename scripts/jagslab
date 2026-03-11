@@ -59,12 +59,12 @@ ensure_container() {
     fi
 }
 
-# Check if pyjags is importable inside the container
+# Check if pyjags is properly installed (not just importable from CWD)
 is_pyjags_installed() {
     if [ "$INSIDE_CONTAINER" = true ]; then
-        python -c "import pyjags" 2>/dev/null
+        pip show pyjags &>/dev/null
     else
-        docker compose exec -T "$SERVICE_NAME" python -c "import pyjags" 2>/dev/null
+        docker compose exec -T "$SERVICE_NAME" pip show pyjags &>/dev/null
     fi
 }
 
@@ -253,6 +253,61 @@ print(f'numpy:   {numpy.__version__}')
 "
 }
 
+cmd_lab() {
+    # Native (non-Docker) Jupyter Lab using the local venv
+    if [ "$INSIDE_CONTAINER" = true ]; then
+        info "Inside Docker — use 'jagslab start' instead."
+        return 1
+    fi
+
+    # Locate the project venv
+    local venv_dir="$PROJECT_ROOT/.venv"
+    if [ ! -f "$venv_dir/bin/activate" ]; then
+        error "No .venv found at $PROJECT_ROOT/.venv"
+        echo ""
+        echo "Create one with:"
+        echo "  uv python install 3.12"
+        echo "  uv venv --python 3.12 .venv"
+        echo "  source .venv/bin/activate"
+        echo "  uv pip install numpy setuptools pybind11"
+        echo "  uv pip install --no-build-isolation -e ."
+        return 1
+    fi
+
+    local venv_python="$venv_dir/bin/python"
+
+    # Ensure pyjags is importable
+    if ! "$venv_python" -c "import pyjags" 2>/dev/null; then
+        error "pyjags is not installed in .venv"
+        echo "Run:  source .venv/bin/activate && uv pip install --no-build-isolation -e ."
+        return 1
+    fi
+
+    # Install lab dependencies if jupyterlab is not already available
+    if ! "$venv_python" -c "import jupyterlab" 2>/dev/null; then
+        info "Installing notebook dependencies..."
+        if command -v uv &>/dev/null; then
+            uv pip install --python "$venv_python" -r "$PROJECT_ROOT/requirements-lab.txt"
+        else
+            "$venv_python" -m pip install -r "$PROJECT_ROOT/requirements-lab.txt" -q
+        fi
+    fi
+
+    # Register the venv as a Jupyter kernel so notebooks use the right Python
+    if ! "$venv_python" -m jupyter kernelspec list 2>/dev/null | grep -q pyjags; then
+        info "Registering pyjags Jupyter kernel..."
+        "$venv_python" -m ipykernel install --user --name pyjags --display-name "Python 3.12 (pyjags)"
+    fi
+
+    local port="${JAGSLAB_PORT:-8888}"
+    info "Starting Jupyter Lab at http://localhost:${port}"
+    info "Press Ctrl+C to stop."
+    "$venv_python" -m jupyter lab \
+        --port="$port" \
+        --no-browser \
+        --notebook-dir="$PROJECT_ROOT/notebooks"
+}
+
 cmd_help() {
     cat << 'EOF'
 jagslab - PyJAGS Development Environment
@@ -260,7 +315,8 @@ jagslab - PyJAGS Development Environment
 Usage: jagslab <command> [options]
 
 Commands:
-  start             Start Jupyter Lab (auto-starts container and installs pyjags)
+  start             Start Jupyter Lab via Docker (auto-starts container)
+  lab               Start Jupyter Lab natively from .venv (no Docker)
   stop              Stop the container
   test [args]       Run the test suite
   install           Install/reinstall pyjags (recompiles C++ extension)
@@ -276,8 +332,9 @@ Commands:
 
 Examples:
   jagslab build                                     # Build the Docker image (first time)
-  jagslab start                                     # Launch Jupyter Lab at http://localhost:8888
-  jagslab stop                                      # Stop everything
+  jagslab start                                     # Launch Jupyter Lab via Docker
+  jagslab lab                                       # Launch Jupyter Lab natively (no Docker)
+  jagslab stop                                      # Stop the Docker container
 
   jagslab test                                      # Run all tests
   jagslab test test.test_model                      # Run one test module
@@ -306,6 +363,7 @@ EOF
 
 case "${1:-}" in
     start)                  cmd_start ;;
+    lab)                    cmd_lab ;;
     stop)                   cmd_stop ;;
     test)       shift;      cmd_test "$@" ;;
     install)                cmd_install ;;
