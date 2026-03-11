@@ -11,3 +11,4 @@ doc/planning/
 scripts/output/
 .ipynb_checkpoints/
 *.hdf5
+.venv/
