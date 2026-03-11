@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# test-all-pythons — Build and test PyJAGS against multiple Python versions.
+#
+# Usage:
+#   ./scripts/test-all-pythons              # Test all supported versions
+#   ./scripts/test-all-pythons 3.11 3.12    # Test specific versions
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+ALL_VERSIONS=(3.12 3.13 3.14)
+
+if [ $# -gt 0 ]; then
+    VERSIONS=("$@")
+else
+    VERSIONS=("${ALL_VERSIONS[@]}")
+fi
+
+IMAGE_PREFIX="pyjags-test"
+PASSED=()
+FAILED=()
+
+echo ""
+echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${BLUE}  PyJAGS Multi-Python Test Matrix${NC}"
+echo -e "${BLUE}  Versions: ${VERSIONS[*]}${NC}"
+echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
+echo ""
+
+for ver in "${VERSIONS[@]}"; do
+    image="${IMAGE_PREFIX}:py${ver}"
+    echo -e "${BLUE}───────────────────────────────────────────────────────────${NC}"
+    echo -e "${BLUE}  Python ${ver}${NC}"
+    echo -e "${BLUE}───────────────────────────────────────────────────────────${NC}"
+
+    # Build the test image
+    echo -e "${YELLOW}  Building image...${NC}"
+    if ! docker build \
+        --build-arg "PYTHON_VERSION=${ver}" \
+        -t "$image" \
+        -f Dockerfile.test \
+        . 2>&1 | tail -1; then
+        echo -e "${RED}  BUILD FAILED for Python ${ver}${NC}"
+        FAILED+=("$ver (build)")
+        echo ""
+        continue
+    fi
+
+    # Run tests (mount source read-write; container is ephemeral via --rm)
+    echo -e "${YELLOW}  Running tests...${NC}"
+    if docker run --rm \
+        -v "$PROJECT_ROOT:/pyjags" \
+        -w /pyjags \
+        "$image" \
+        bash -c "pip install --no-build-isolation -e . -q 2>&1 && python -m unittest discover test/ -v" 2>&1; then
+        echo ""
+        echo -e "${GREEN}  PASSED: Python ${ver}${NC}"
+        PASSED+=("$ver")
+    else
+        echo ""
+        echo -e "${RED}  FAILED: Python ${ver}${NC}"
+        FAILED+=("$ver (tests)")
+    fi
+
+    # Remove the test image
+    docker rmi "$image" >/dev/null 2>&1 || true
+    echo ""
+done
+
+# Summary
+echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
+echo -e "${BLUE}  Summary${NC}"
+echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
+
+if [ ${#PASSED[@]} -gt 0 ]; then
+    echo -e "${GREEN}  Passed: ${PASSED[*]}${NC}"
+fi
+if [ ${#FAILED[@]} -gt 0 ]; then
+    echo -e "${RED}  Failed: ${FAILED[*]}${NC}"
+fi
+
+echo ""
+
+if [ ${#FAILED[@]} -gt 0 ]; then
+    exit 1
+fi

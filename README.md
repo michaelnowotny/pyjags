@@ -16,11 +16,14 @@ License: GPLv2
 
 | Component | Supported Versions |
 |-----------|-------------------|
-| Python | 3.10 -- 3.12 |
+| Python | 3.12+ |
 | NumPy | 1.x and 2.x |
 | ArviZ | 1.0+ |
 | macOS | Intel and Apple Silicon (M1/M2/M3/M4) |
 | Linux | Debian/Ubuntu (tested), other distributions (untested) |
+
+> **Note:** Python 3.10 and 3.11 were supported in earlier releases but are no longer
+> supported because ArviZ 1.0 — a core dependency — requires Python 3.12+.
 
 ## Installation
 

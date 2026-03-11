@@ -1,0 +1,16 @@
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-bookworm
+
+# Install JAGS and build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    jags \
+    pkg-config \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PIP_ROOT_USER_ACTION=ignore
+
+# Core build and runtime dependencies
+RUN pip install --no-cache-dir numpy setuptools arviz h5py
+
+WORKDIR /pyjags

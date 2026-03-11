@@ -126,15 +126,15 @@ if __name__ == '__main__':
           author_email='nowotnym@gmail.com',
           url='https://github.com/michaelnowotny/pyjags',
           license='GPLv2',
+          python_requires='>=3.12',
           classifiers=[
               'Development Status :: 4 - Beta',
               'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
               'Operating System :: POSIX',
               'Programming Language :: C++',
-              'Programming Language :: Python :: 3.6',
-              'Programming Language :: Python :: 3.7',
-              'Programming Language :: Python :: 3.8',
-              'Programming Language :: Python :: 3.9',
+              'Programming Language :: Python :: 3.12',
+              'Programming Language :: Python :: 3.13',
+              'Programming Language :: Python :: 3.14',
               'Programming Language :: Python',
               'Topic :: Scientific/Engineering :: Information Analysis',
               'Topic :: Scientific/Engineering',
@@ -143,7 +143,7 @@ if __name__ == '__main__':
           ext_modules=[ext],
           install_requires=[
               'numpy',
-              'arviz',
+              'arviz>=1.0',
               'h5py'
           ],
           test_suite='test',

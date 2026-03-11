@@ -78,8 +78,9 @@ Sample arrays returned by `Model.sample()` have shape `(*variable_dims, iteratio
 
 ## Dependencies
 
+- **Python 3.12+** — required (arviz 1.0 requires Python 3.12+)
 - **numpy** — array handling and data conversion
-- **arviz** — Bayesian analysis/visualization; used in `incremental_sampling.py` for ESS/Rhat
+- **arviz >= 1.0** — Bayesian analysis/visualization; used in `incremental_sampling.py` for ESS/Rhat and in `pyjags/arviz.py` for `from_pyjags()` converter
 - **h5py** — HDF5 file I/O for sample persistence
 - **JAGS** — external system library (must be installed separately)
 - **pybind11** — included as git submodule in `pybind11/`
