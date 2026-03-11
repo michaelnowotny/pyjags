@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Copyright (C) 2026 Michael Nowotny
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
 # test-all-pythons — Build and test PyJAGS against multiple Python versions.
 #
 # Usage:
@@ -63,7 +74,7 @@ for ver in "${VERSIONS[@]}"; do
         -v "$PROJECT_ROOT:/pyjags" \
         -w /pyjags \
         "$image" \
-        bash -c "pip install --no-build-isolation -e . -q 2>&1 && python -m unittest discover test/ -v" 2>&1; then
+        bash -c "pip install --no-build-isolation -e . -q 2>&1 && pip install pytest hypothesis -q 2>&1 && python -m pytest test/ -v" 2>&1; then
         echo ""
         echo -e "${GREEN}  PASSED: Python ${ver}${NC}"
         PASSED+=("$ver")

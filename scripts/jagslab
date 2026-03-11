@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Copyright (C) 2026 Michael Nowotny
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
 # jagslab - PyJAGS Development Environment Management Script
 # Manages Docker container for PyJAGS development, testing, and Jupyter notebooks.
 
@@ -169,13 +180,13 @@ cmd_test() {
 
     local test_args=("$@")
 
-    # Default: discover all tests verbosely
+    # Default: run all tests verbosely
     if [ ${#test_args[@]} -eq 0 ]; then
-        test_args=("discover" "test/" "-v")
+        test_args=("-v")
     fi
 
     info "Running tests..."
-    run_in_container python -m unittest "${test_args[@]}"
+    run_in_container python -m pytest "${test_args[@]}"
 }
 
 cmd_install() {
@@ -337,8 +348,9 @@ Examples:
   jagslab stop                                      # Stop the Docker container
 
   jagslab test                                      # Run all tests
-  jagslab test test.test_model                      # Run one test module
-  jagslab test test.test_model.TestModel.test_samples_shape   # Run a single test
+  jagslab test test/test_model.py                   # Run one test module
+  jagslab test test/test_model.py::TestModel::test_samples_shape  # Run a single test
+  jagslab test -k "test_scalar"                     # Run tests matching a keyword
 
   jagslab install                                   # Reinstall after changing console.cc
   jagslab shell                                     # Interactive shell for debugging

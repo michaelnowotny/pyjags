@@ -37,14 +37,21 @@ The build compiles a single C++ extension (`pyjags/console.cc`) using pybind11 a
 ```bash
 # Via jagslab (recommended)
 ./scripts/jagslab test
-./scripts/jagslab test test.test_model
-./scripts/jagslab test test.test_model.TestModel.test_samples_shape
+./scripts/jagslab test test/test_model.py
+./scripts/jagslab test test/test_model.py::TestModel::test_samples_shape
+./scripts/jagslab test -k "test_scalar"
 
 # Directly (inside container or with local JAGS)
-python -m unittest discover test/
+python -m pytest test/ -v
+
+# Run a single test file
+python -m pytest test/test_chain_utilities.py -v
+
+# Multi-Python version matrix
+./scripts/test-all-pythons
 ```
 
-Tests use Python's built-in `unittest` framework. Test files are in `test/`.
+Tests use pytest with Hypothesis for property-based testing. Dev dependencies: `pip install pytest hypothesis`. Test files are in `test/`. Hypothesis is configured with `dev` (10 examples) and `ci` (50 examples) profiles in `test/conftest.py`.
 
 ## Architecture
 
@@ -84,6 +91,45 @@ Sample arrays returned by `Model.sample()` have shape `(*variable_dims, iteratio
 - **h5py** — HDF5 file I/O for sample persistence
 - **JAGS** — external system library (must be installed separately)
 - **pybind11** — included as git submodule in `pybind11/`
+
+## Copyright and Licensing
+
+PyJAGS is released under the GNU General Public License version 2 (GPLv2). The following rules are **mandatory** and must never be violated:
+
+### Copyright Headers
+
+Every source file (Python, C++, shell scripts, Dockerfiles) **must** carry a GPLv2 copyright header:
+
+```
+# Copyright (C) <year> <author>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+```
+
+### Rules
+
+1. **Never remove existing copyright notices.** The original author Tomasz Miasko (2015-2016) created PyJAGS. Michael Nowotny took over as maintainer in 2020. All prior copyright attributions must be preserved.
+2. **When modifying an existing file**, add `Michael Nowotny` with the year of modification to the copyright header if not already present. Use the multi-line format:
+   ```
+   # Copyright (C) 2015-2016 Tomasz Miasko
+   #               2020 Michael Nowotny
+   ```
+3. **New files** get `Copyright (C) <current_year> Michael Nowotny` with the full GPLv2 header.
+4. **Use the correct year**: the year the code was first contributed, not the current year (unless the file is being created now). Check `git log --diff-filter=A -- <file>` when uncertain.
+5. **GPLv2 Section 2a compliance**: modified files must carry prominent notices stating that you changed the files and the date of any change. The copyright header update satisfies this requirement.
+
+### Copyright Holders
+
+- **Tomasz Miasko** — original creator (2015-2016)
+- **Michael Nowotny** — maintainer (2020-present)
+- **Martyn Plummer** — author of JAGS (the upstream dependency, not part of this codebase)
 
 ## Version Management
 
