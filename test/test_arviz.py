@@ -92,6 +92,23 @@ class TestConvertPyjagsSamplesToArviz:
         result = _convert_pyjags_samples_to_arviz({"x": arr})
         assert result["x"].shape == (chains, iterations, param_dim)
 
+    def test_empty_sample_dictionary(self):
+        """Empty dictionary should return empty dictionary."""
+        result = _convert_pyjags_samples_to_arviz({})
+        assert result == {}
+
+    def test_high_dimensional_array(self):
+        """5D array: shape (2, 3, 4, iterations, chains) -> (chains, draws, 2, 3, 4)."""
+        d1, d2, d3, iterations, chains = 2, 3, 4, 20, 2
+        arr = np.random.randn(d1, d2, d3, iterations, chains)
+        result = _convert_pyjags_samples_to_arviz({"tensor": arr})
+        assert result["tensor"].shape == (chains, iterations, d1, d2, d3)
+
+    def test_rejects_0d_array(self):
+        """0D scalar array should raise ValueError."""
+        with pytest.raises(ValueError):
+            _convert_pyjags_samples_to_arviz({"x": np.float64(1.0)})
+
 
 # ---------------------------------------------------------------------------
 # from_pyjags
@@ -210,3 +227,24 @@ class TestSplitWarmup:
         assert actual["x"].shape == (1, 15, 3)
         np.testing.assert_array_equal(warmup["x"], arr[:, :5, :])
         np.testing.assert_array_equal(actual["x"], arr[:, 5:, :])
+
+    def test_split_warmup_zero(self):
+        """Zero warmup iterations: all samples go to actual."""
+        arr = np.random.randn(1, 20, 3)
+        warmup, actual = _split_warmup({"x": arr}, warmup_iterations=0)
+        assert warmup["x"].shape == (1, 0, 3)
+        assert actual["x"].shape == (1, 20, 3)
+
+    def test_split_warmup_equals_total(self):
+        """Warmup == total iterations: all samples go to warmup."""
+        arr = np.random.randn(1, 20, 3)
+        warmup, actual = _split_warmup({"x": arr}, warmup_iterations=20)
+        assert warmup["x"].shape == (1, 20, 3)
+        assert actual["x"].shape == (1, 0, 3)
+
+    def test_split_warmup_exceeds_total(self):
+        """Warmup > total iterations: warmup gets all, actual is empty."""
+        arr = np.random.randn(1, 10, 3)
+        warmup, actual = _split_warmup({"x": arr}, warmup_iterations=50)
+        assert warmup["x"].shape == (1, 10, 3)
+        assert actual["x"].shape == (1, 0, 3)
