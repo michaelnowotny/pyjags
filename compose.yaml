@@ -1,0 +1,12 @@
+services:
+  pyjags:
+    build:
+      context: .
+      dockerfile: Dockerfile.lab
+    volumes:
+      - .:/pyjags
+      - ./notebooks:/app/notebooks
+    ports:
+      - "${JAGSLAB_PORT:-8888}:8888"
+    stdin_open: true
+    tty: true

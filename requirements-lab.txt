@@ -1,0 +1,4 @@
+jupyterlab
+seaborn
+scikit-learn
+line_profiler

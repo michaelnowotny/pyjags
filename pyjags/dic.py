@@ -138,7 +138,7 @@ def dic_samples(model,
 
     load_module(name='dic')
 
-    if not type == "pD" or type == "popt":
+    if type not in ("pD", "popt"):
         raise ValueError(f"type must either be pD or popt but is {type}")
     pdtype = type
     model.console.setMonitors(names=("deviance", pdtype),

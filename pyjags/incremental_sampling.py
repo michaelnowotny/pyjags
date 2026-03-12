@@ -14,6 +14,7 @@ import arviz as az
 import numpy as np
 import typing as tp
 
+from .arviz import from_pyjags
 from .chain_utilities import (
     merge_consecutive_chains,
     get_chain_length)
@@ -48,12 +49,10 @@ class EffectiveSampleSizeCriterion:
     def __call__(self,
                  samples: tp.Dict[str, np.ndarray],
                  verbose: bool) -> bool:
-        idata = az.from_pyjags(samples)
+        idata = from_pyjags(samples)
         ess = az.ess(idata, var_names=self.variable_names)
 
-        minimum_ess = min(value['data']
-                          for key, value
-                          in ess.to_dict()['data_vars'].items())
+        minimum_ess = min(float(ess[var]) for var in ess.data_vars)
 
         if verbose:
             print(f'minimum ess = {minimum_ess}')
@@ -88,12 +87,12 @@ class RHatDeviationCriterion:
     def __call__(self,
                  samples: tp.Dict[str, np.ndarray],
                  verbose: bool) -> bool:
-        idata = az.from_pyjags(samples)
+        idata = from_pyjags(samples)
         rhat = az.rhat(idata, var_names=self.variable_names)
 
-        maximum_rhat_deviation = max(abs(value['data'] - 1.0)
-                                     for key, value
-                                     in rhat.to_dict()['data_vars'].items())
+        maximum_rhat_deviation = max(
+            abs(float(rhat[var]) - 1.0) for var in rhat.data_vars
+        )
 
         if verbose:
             print(f'maximum rhat deviation = {maximum_rhat_deviation}')
@@ -135,18 +134,16 @@ class EffectiveSampleSizeAndRHatCriterion:
     def __call__(self,
                  samples: tp.Dict[str, np.ndarray],
                  verbose: bool) -> bool:
-        idata = az.from_pyjags(samples)
+        idata = from_pyjags(samples)
         ess = az.ess(idata, var_names=self.variable_names)
 
-        minimum_ess = min(value['data']
-                          for key, value
-                          in ess.to_dict()['data_vars'].items())
+        minimum_ess = min(float(ess[var]) for var in ess.data_vars)
 
         rhat = az.rhat(idata, var_names=self.variable_names)
 
-        maximum_rhat_deviation = max(abs(value['data'] - 1.0)
-                                     for key, value
-                                     in rhat.to_dict()['data_vars'].items())
+        maximum_rhat_deviation = max(
+            abs(float(rhat[var]) - 1.0) for var in rhat.data_vars
+        )
         if verbose:
             print(f'minimum ess = {minimum_ess}')
             print(f'maximum rhat deviation = {maximum_rhat_deviation}')

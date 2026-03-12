@@ -6,3 +6,9 @@ doc/_build
 
 .idea/
 /pyjags.egg-info/
+.env
+doc/planning/
+scripts/output/
+.ipynb_checkpoints/
+*.hdf5
+.venv/
