@@ -117,3 +117,87 @@ class TestDIC:
     def test_popt_type(self):
         dic = self._make_dic(type="popt")
         assert dic.type == "popt"
+
+
+# ---------------------------------------------------------------------------
+# dic_samples (JAGS integration)
+# ---------------------------------------------------------------------------
+
+class TestDicSamples:
+    """Integration tests for dic_samples — require a running JAGS engine."""
+
+    @pytest.fixture()
+    def bernoulli_model(self):
+        import pyjags
+        code = """
+        model {
+            for (i in 1:N) {
+                x[i] ~ dbern(p)
+            }
+            p ~ dbeta(1, 1)
+        }
+        """
+        model = pyjags.Model(
+            code=code,
+            data={"x": np.array([1, 1, 0, 1, 0]), "N": 5},
+            chains=2,
+            adapt=500,
+        )
+        yield model
+        # Clean up: unload dic module so it doesn't pollute other tests
+        try:
+            pyjags.unload_module("dic")
+        except Exception:
+            pass
+
+    @pytest.mark.slow
+    def test_dic_samples_returns_dic(self, bernoulli_model):
+        from pyjags.dic import dic_samples
+        result = dic_samples(bernoulli_model, n_iter=500)
+        assert isinstance(result, DIC)
+        assert result.type == "pD"
+        assert result.deviance is not None
+        assert result.penalty is not None
+
+    @pytest.mark.slow
+    def test_dic_samples_popt(self, bernoulli_model):
+        from pyjags.dic import dic_samples
+        result = dic_samples(bernoulli_model, n_iter=500, type="popt")
+        assert isinstance(result, DIC)
+        assert result.type == "popt"
+
+    @pytest.mark.slow
+    def test_dic_samples_with_thinning(self, bernoulli_model):
+        from pyjags.dic import dic_samples
+        result = dic_samples(bernoulli_model, n_iter=500, thin=2)
+        assert isinstance(result, DIC)
+
+    @pytest.mark.slow
+    def test_dic_samples_invalid_model_raises(self):
+        from pyjags.dic import dic_samples
+        with pytest.raises(ValueError, match="Invalid JAGS model"):
+            dic_samples("not a model", n_iter=100)
+
+    @pytest.mark.slow
+    def test_dic_samples_single_chain_raises(self):
+        import pyjags
+        from pyjags.dic import dic_samples
+        model = pyjags.Model(
+            code="model { x ~ dbern(0.5) }",
+            chains=1,
+            adapt=100,
+        )
+        with pytest.raises(ValueError, match="2 or more parallel chains"):
+            dic_samples(model, n_iter=100)
+
+    @pytest.mark.slow
+    def test_dic_samples_invalid_niter_raises(self, bernoulli_model):
+        from pyjags.dic import dic_samples
+        with pytest.raises(ValueError, match="n_iter must be a positive integer"):
+            dic_samples(bernoulli_model, n_iter=-1)
+
+    @pytest.mark.slow
+    def test_dic_samples_invalid_type_raises(self, bernoulli_model):
+        from pyjags.dic import dic_samples
+        with pytest.raises(ValueError, match="type must either be pD or popt"):
+            dic_samples(bernoulli_model, n_iter=100, type="invalid")

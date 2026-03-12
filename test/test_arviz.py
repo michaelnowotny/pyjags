@@ -208,6 +208,44 @@ class TestFromPyjags:
         assert dict(idata["posterior"].sizes)["draw"] == 150
         assert "warmup_posterior" not in [c for c in idata.children]
 
+    def test_warmup_saved_with_log_likelihood(self):
+        """Warmup + log_likelihood combined: both should be split correctly."""
+        iterations, chains = 200, 4
+        warmup = 50
+        samples = {
+            "mu": np.random.randn(1, iterations, chains),
+            "loglik": np.random.randn(10, iterations, chains),
+        }
+        idata = from_pyjags(
+            samples,
+            log_likelihood="loglik",
+            save_warmup=True,
+            warmup_iterations=warmup,
+        )
+        assert dict(idata["posterior"].sizes)["draw"] == 150
+        assert dict(idata["warmup_posterior"].sizes)["draw"] == 50
+        assert "loglik" in idata["log_likelihood"].data_vars
+        assert "loglik" in idata["warmup_log_likelihood"].data_vars
+        assert "loglik" not in idata["posterior"].data_vars
+
+    def test_warmup_discarded_with_log_likelihood(self):
+        """Warmup discarded + log_likelihood: warmup removed from both groups."""
+        iterations, chains = 200, 4
+        warmup = 50
+        samples = {
+            "mu": np.random.randn(1, iterations, chains),
+            "loglik": np.random.randn(10, iterations, chains),
+        }
+        idata = from_pyjags(
+            samples,
+            log_likelihood="loglik",
+            save_warmup=False,
+            warmup_iterations=warmup,
+        )
+        assert dict(idata["posterior"].sizes)["draw"] == 150
+        assert dict(idata["log_likelihood"].sizes)["draw"] == 150
+        assert "warmup_posterior" not in [c for c in idata.children]
+
     def test_pyjags_public_api(self):
         """from_pyjags should be importable from the top-level pyjags package."""
         import pyjags
