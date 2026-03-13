@@ -298,7 +298,9 @@ pip install cmake
 
 ## Acknowledgements
 
-
 * JAGS was created by Martyn Plummer
 * PyJAGS was originally created by Tomasz Miasko
 * As of May 2020, PyJAGS is developed by Michael Nowotny
+* [Max Schulist](https://github.com/mschulist) ([PR #1](https://github.com/michaelnowotny/pyjags/pull/1))
+  proposed migrating to scikit-build-core, pyproject.toml, and pytest — ideas that
+  inspired the packaging modernization in version 2.1
