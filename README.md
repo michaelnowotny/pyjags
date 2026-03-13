@@ -120,6 +120,13 @@ cd pyjags
 pip install -e .
 ```
 
+### Windows
+
+PyJAGS is not natively supported on Windows. Windows users should use
+[WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows
+Subsystem for Linux) with an Ubuntu distribution, then follow the Linux
+installation instructions above.
+
 ## Notebooks
 
 The `notebooks/` directory contains Jupyter notebooks demonstrating PyJAGS features:
