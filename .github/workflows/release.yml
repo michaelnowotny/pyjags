@@ -1,0 +1,126 @@
+# Copyright (C) 2026 Michael Nowotny
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+name: Release
+
+on:
+  push:
+    tags: ["[0-9]+.*"]
+  workflow_dispatch:
+
+jobs:
+  # -------------------------------------------------------------------
+  # Build source distribution
+  # -------------------------------------------------------------------
+  build-sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools-scm needs full history
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist
+        run: |
+          pip install build
+          python -m build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  # -------------------------------------------------------------------
+  # Build wheels on Linux (x86_64 and aarch64)
+  # -------------------------------------------------------------------
+  build-wheels-linux:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp312-manylinux* cp313-manylinux*"
+          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+          CIBW_BEFORE_ALL_LINUX: bash scripts/install-jags-manylinux.sh
+          CIBW_ENVIRONMENT_LINUX: PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+
+  # -------------------------------------------------------------------
+  # Build wheels on macOS (arm64 and x86_64)
+  # -------------------------------------------------------------------
+  build-wheels-macos:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install JAGS
+        run: brew install jags
+
+      - uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp312-macosx* cp313-macosx*"
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+
+  # -------------------------------------------------------------------
+  # Publish to PyPI (only on tag push, not workflow_dispatch)
+  # -------------------------------------------------------------------
+  publish:
+    needs: [build-sdist, build-wheels-linux, build-wheels-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    permissions:
+      id-token: write  # required for trusted publishing
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pyjags/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

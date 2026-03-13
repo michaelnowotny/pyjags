@@ -1,118 +1,77 @@
 # Releasing PyJAGS
 
-Steps to publish a new release to PyPI.
+## Automated Release (recommended)
 
-## Prerequisites
+Pushing a version tag triggers GitHub Actions to build wheels for all platforms
+and publish to PyPI automatically via trusted publishing.
+
+### Steps
+
+1. **Ensure tests pass** — check that CI is green on master.
+
+2. **Tag the release** — tags have no prefix (e.g. `2.1.0`, not `v2.1.0`):
+
+   ```bash
+   git tag X.Y.Z
+   ```
+
+3. **Push the tag**:
+
+   ```bash
+   git push origin master
+   git push origin X.Y.Z
+   ```
+
+4. **Monitor the release workflow** at
+   https://github.com/michaelnowotny/pyjags/actions/workflows/release.yml
+
+   The workflow builds:
+   - Source distribution (sdist)
+   - Linux wheels (x86_64, aarch64) for Python 3.12 and 3.13
+   - macOS wheels (arm64, x86_64) for Python 3.12 and 3.13
+
+   On success, all artifacts are uploaded to PyPI automatically.
+
+5. **Create a GitHub Release** at
+   https://github.com/michaelnowotny/pyjags/releases/new — select the existing
+   tag and write release notes.
+
+### One-time setup: PyPI trusted publishing
+
+Before the first automated release, configure trusted publishing on PyPI:
+
+1. Go to https://pypi.org/manage/project/pyjags/settings/publishing/
+2. Add a new publisher:
+   - Owner: `michaelnowotny`
+   - Repository: `pyjags`
+   - Workflow: `release.yml`
+   - Environment: `pypi`
+
+### Dry run (no publish)
+
+Use the "Run workflow" button on the Actions page to trigger a build without
+publishing. This runs on `workflow_dispatch` and skips the publish step.
+
+## Manual Release
+
+If you need to release without GitHub Actions (e.g. for a hotfix):
 
 ```bash
 pip install twine build
-```
 
-You will need API tokens for [PyPI](https://pypi.org/manage/account/token/) and
-optionally [Test PyPI](https://test.pypi.org/manage/account/token/). Scope the
-PyPI token to the `pyjags` project. Store tokens securely (e.g. in a password
-manager or `~/.pypirc`).
-
-## 1. Ensure tests pass
-
-```bash
-python -m pytest test/ -v
-
-# Optional: multi-Python matrix via Docker
-./scripts/test-all-pythons
-```
-
-## 2. Tag the release
-
-Tags have no prefix (e.g. `2.1.0`, not `v2.1.0`). setuptools-scm infers the
-version from git tags.
-
-```bash
-git tag X.Y.Z
-```
-
-Verify the version is picked up:
-
-```bash
-pip install -e . && python -c "import pyjags; print(pyjags.__version__)"
-# Should print: X.Y.Z
-```
-
-## 3. Push the tag
-
-```bash
-git push origin master
-git push origin X.Y.Z
-```
-
-## 4. Build the source distribution
-
-```bash
+# Build
 rm -rf dist/ build/
-
 python -m build --sdist
 
-# Verify
-ls -la dist/
-# Should show: pyjags-X.Y.Z.tar.gz
-```
-
-## 5. Upload to Test PyPI (recommended)
-
-```bash
+# Upload to Test PyPI first
 twine upload --repository-url https://test.pypi.org/legacy/ dist/pyjags-X.Y.Z.tar.gz
-```
 
-Verify:
-
-```bash
-python -m venv /tmp/test-pyjags
-source /tmp/test-pyjags/bin/activate
-
-pip install --index-url https://test.pypi.org/simple/ \
-    --extra-index-url https://pypi.org/simple/ \
-    pyjags==X.Y.Z
-
-python -c "import pyjags; print(pyjags.__version__)"
-
-deactivate
-rm -rf /tmp/test-pyjags
-```
-
-## 6. Upload to PyPI
-
-Only proceed if Test PyPI verification passed.
-
-```bash
+# Verify, then upload to real PyPI
 twine upload dist/pyjags-X.Y.Z.tar.gz
 ```
 
-## 7. Create a GitHub Release
-
-Go to https://github.com/michaelnowotny/pyjags/releases/new, select the
-existing tag, and write release notes.
-
-## Credentials
-
-You can avoid entering credentials each time by creating `~/.pypirc`:
-
-```ini
-[distutils]
-index-servers =
-    pypi
-    testpypi
-
-[pypi]
-username = __token__
-password = pypi-<your-real-token>
-
-[testpypi]
-repository = https://test.pypi.org/legacy/
-username = __token__
-password = pypi-<your-test-token>
-```
-
-Set `chmod 600 ~/.pypirc` to protect your tokens.
+For manual uploads, you need a PyPI API token. Create one at
+https://pypi.org/manage/account/token/ (scoped to the `pyjags` project).
 
 ## Rollback
 
