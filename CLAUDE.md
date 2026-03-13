@@ -47,7 +47,17 @@ python -m pytest test/test_chain_utilities.py -v
 ./scripts/test-all-pythons
 ```
 
-Tests use pytest with Hypothesis for property-based testing. Dev dependencies: `pip install pytest hypothesis`. Test files are in `test/`. Hypothesis is configured with `dev` (10 examples) and `ci` (50 examples) profiles in `test/conftest.py`.
+Tests use pytest with Hypothesis for property-based testing. Dev dependencies: `pip install -e ".[dev]"` (includes pytest, hypothesis, pytest-cov, ruff). Test files are in `test/`. Hypothesis is configured with `dev` (10 examples) and `ci` (50 examples) profiles in `test/conftest.py`.
+
+## Linting & Formatting
+
+```bash
+ruff format src/ test/       # Format code
+ruff check src/ test/        # Lint check
+ruff check --fix src/ test/  # Auto-fix lint issues
+```
+
+Ruff is configured in `pyproject.toml` under `[tool.ruff]`. CI runs both `ruff format --check` and `ruff check` on every push/PR.
 
 ## Architecture
 
