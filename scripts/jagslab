@@ -241,7 +241,7 @@ cmd_clean() {
     run_in_container bash -c "\
         find /pyjags -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; \
         rm -rf /pyjags/*.egg-info /pyjags/build /pyjags/dist; \
-        rm -f /pyjags/pyjags/*.so; \
+        rm -f /pyjags/src/pyjags/*.so; \
         echo 'Done.'"
 }
 
@@ -362,8 +362,8 @@ Examples:
 
 Notes:
   - Most commands auto-start the container and install pyjags if needed.
-  - After editing pyjags/*.py files, changes take effect immediately (editable install).
-  - After editing pyjags/console.cc, run 'jagslab install' to recompile the C++ extension.
+  - After editing src/pyjags/*.py files, changes take effect immediately (editable install).
+  - After editing src/pyjags/console.cc, run 'jagslab install' to recompile the C++ extension.
   - Jupyter notebooks are served from ./notebooks/ on the host.
 EOF
 }

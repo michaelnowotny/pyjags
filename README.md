@@ -223,10 +223,10 @@ cp .env.example .env          # Edit .env to customize (e.g., Jupyter port)
 
 ### Working with the C++ Extension
 
-PyJAGS includes a C++ extension (`pyjags/console.cc`) that wraps the JAGS library
-using pybind11. When editing Python files under `pyjags/`, changes take effect
+PyJAGS includes a C++ extension (`src/pyjags/console.cc`) that wraps the JAGS library
+using pybind11. When editing Python files under `src/pyjags/`, changes take effect
 immediately thanks to the editable install. However, **after editing
-`pyjags/console.cc`, you must recompile**:
+`src/pyjags/console.cc`, you must recompile**:
 
 ```bash
 ./scripts/jagslab install

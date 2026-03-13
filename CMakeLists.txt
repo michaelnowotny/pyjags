@@ -200,7 +200,7 @@ message(STATUS "JAGS libraries: ${JAGS_LIBRARIES}")
 # ---------------------------------------------------------------------------
 # Build the pybind11 extension module
 # ---------------------------------------------------------------------------
-pybind11_add_module(console pyjags/console.cc)
+pybind11_add_module(console src/pyjags/console.cc)
 target_include_directories(console PRIVATE ${JAGS_INCLUDE_DIRS})
 if(JAGS_LIBRARY_DIRS)
     target_link_directories(console PRIVATE ${JAGS_LIBRARY_DIRS})
@@ -223,3 +223,8 @@ if(JAGS_LIBRARY_DIRS)
 endif()
 
 install(TARGETS console DESTINATION pyjags)
+
+# scikit-build-core with wheel.install-dir="." expects the install tree
+# to mirror the wheel layout.  The line above places the .so into a
+# "pyjags/" subdirectory which, combined with wheel.install-dir=".",
+# results in the correct final path inside site-packages/pyjags/.

@@ -1,1 +1,1 @@
-pyjags/_version.py export-subst
+src/pyjags/_version.py export-subst
