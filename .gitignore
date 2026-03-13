@@ -5,10 +5,13 @@ doc/_build
 *.so
 
 .idea/
-/pyjags.egg-info/
+*.egg-info/
 .env
 doc/planning/
 scripts/output/
 .ipynb_checkpoints/
 *.hdf5
 .venv/
+_skbuild/
+CMakeCache.txt
+CMakeFiles/

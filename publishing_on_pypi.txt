@@ -1,4 +1,0 @@
-git tag <version number, e.g. 1.2.0>
-python setup.py sdist
-twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-twine upload dist/*

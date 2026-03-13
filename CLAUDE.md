@@ -20,17 +20,13 @@ Two-tier Docker architecture: `Dockerfile` (base — JAGS + build tools + core d
 
 ## Build & Install
 
-Requires JAGS library installed on the system. On Linux/macOS, `pkg-config` is used to locate JAGS. Inside the Docker container, `--no-build-isolation` is required because numpy must be importable at build time.
+Uses scikit-build-core + CMake as the build backend. CMake finds JAGS via pkg-config (primary) with fallback path search for conda/Homebrew. Requires JAGS, a C++ compiler, and CMake installed on the system.
 
 ```bash
-# Inside Docker container
-pip install --no-build-isolation -e .
-
-# Outside Docker (system JAGS required)
 pip install -e .
 ```
 
-The build compiles a single C++ extension (`pyjags/console.cc`) using pybind11 and C++14.
+The build compiles a single C++ extension (`src/pyjags/console.cc`) using pybind11 and C++14. Build dependencies (pybind11, numpy, scikit-build-core, setuptools-scm) are handled automatically via build isolation.
 
 ## Testing
 
@@ -57,19 +53,19 @@ Tests use pytest with Hypothesis for property-based testing. Dev dependencies: `
 
 ### Core Components
 
-- **`pyjags/console.cc`** — pybind11 C++ bindings wrapping the JAGS Console class. Handles data conversion between Python (numpy arrays) and JAGS (SArray). Exposes `checkModel`, `compile`, `initialize`, `update`, `sample`, monitor management, and RNG control.
+- **`src/pyjags/console.cc`** — pybind11 C++ bindings wrapping the JAGS Console class. Handles data conversion between Python (numpy arrays) and JAGS (SArray). Exposes `checkModel`, `compile`, `initialize`, `update`, `sample`, monitor management, and RNG control.
 
-- **`pyjags/model.py`** — High-level `Model` class (main public API). Manages model compilation, initialization, adaptation, and sampling. Contains `MultiConsole` which wraps multiple JAGS Console instances for parallel chain execution across threads.
+- **`src/pyjags/model.py`** — High-level `Model` class (main public API). Manages model compilation, initialization, adaptation, and sampling. Contains `MultiConsole` which wraps multiple JAGS Console instances for parallel chain execution across threads.
 
-- **`pyjags/chain_utilities.py`** — Utilities for MCMC chain manipulation: burn-in discarding, merging parallel/consecutive chains, extracting final iterations for re-initialization.
+- **`src/pyjags/chain_utilities.py`** — Utilities for MCMC chain manipulation: burn-in discarding, merging parallel/consecutive chains, extracting final iterations for re-initialization.
 
-- **`pyjags/incremental_sampling.py`** — Convergence criteria (`EffectiveSampleSizeCriterion`, `RHatDeviationCriterion`) and iterative `sample_until()` for sampling until convergence.
+- **`src/pyjags/incremental_sampling.py`** — Convergence criteria (`EffectiveSampleSizeCriterion`, `RHatDeviationCriterion`) and iterative `sample_until()` for sampling until convergence.
 
-- **`pyjags/modules.py`** — JAGS module discovery and loading from filesystem paths.
+- **`src/pyjags/modules.py`** — JAGS module discovery and loading from filesystem paths.
 
-- **`pyjags/io.py`** — HDF5 persistence for sample dictionaries via `h5py`.
+- **`src/pyjags/io.py`** — HDF5 persistence for sample dictionaries via `h5py`.
 
-- **`pyjags/dic.py`** — Deviance Information Criterion calculation.
+- **`src/pyjags/dic.py`** — Deviance Information Criterion calculation.
 
 ### Data Flow
 
@@ -87,10 +83,13 @@ Sample arrays returned by `Model.sample()` have shape `(*variable_dims, iteratio
 
 - **Python 3.12+** — required (arviz 1.0 requires Python 3.12+)
 - **numpy** — array handling and data conversion
-- **arviz >= 1.0** — Bayesian analysis/visualization; used in `incremental_sampling.py` for ESS/Rhat and in `pyjags/arviz.py` for `from_pyjags()` converter
+- **arviz >= 1.0** — Bayesian analysis/visualization; used in `incremental_sampling.py` for ESS/Rhat and in `src/pyjags/arviz.py` for `from_pyjags()` converter
 - **h5py** — HDF5 file I/O for sample persistence
 - **JAGS** — external system library (must be installed separately)
-- **pybind11** — included as git submodule in `pybind11/`
+- **pybind11** — build dependency (installed automatically via build isolation)
+- **CMake >= 3.15** — build dependency for finding JAGS and compiling the extension
+- **scikit-build-core** — build backend (declared in `pyproject.toml`)
+- **setuptools-scm** — version inference from git tags
 
 ## Copyright and Licensing
 
@@ -133,4 +132,4 @@ Every source file (Python, C++, shell scripts, Dockerfiles) **must** carry a GPL
 
 ## Version Management
 
-Uses versioneer with git tags (no prefix) for automatic version inference.
+Uses setuptools-scm with git tags (no prefix, e.g. `2.0.0` not `v2.0.0`) for automatic version inference. The version is read at runtime via `importlib.metadata.version("pyjags")`. Configuration is in `pyproject.toml` under `[tool.setuptools-scm]`.

@@ -83,9 +83,9 @@ ensure_installed() {
     if ! is_pyjags_installed; then
         info "Installing pyjags in editable mode..."
         if [ "$INSIDE_CONTAINER" = true ]; then
-            pip install --no-build-isolation -e . -q
+            pip install -e . -q
         else
-            docker compose exec -T "$SERVICE_NAME" pip install --no-build-isolation -e . -q
+            docker compose exec -T "$SERVICE_NAME" pip install -e . -q
         fi
     fi
 }
@@ -196,9 +196,9 @@ cmd_install() {
 
     info "Installing pyjags in editable mode (compiles C++ extension)..."
     if [ "$INSIDE_CONTAINER" = true ]; then
-        pip install --no-build-isolation -e .
+        pip install -e .
     else
-        docker compose exec "$SERVICE_NAME" pip install --no-build-isolation -e .
+        docker compose exec "$SERVICE_NAME" pip install -e .
     fi
     info "Install complete."
 }
@@ -241,7 +241,7 @@ cmd_clean() {
     run_in_container bash -c "\
         find /pyjags -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; \
         rm -rf /pyjags/*.egg-info /pyjags/build /pyjags/dist; \
-        rm -f /pyjags/pyjags/*.so; \
+        rm -f /pyjags/src/pyjags/*.so; \
         echo 'Done.'"
 }
 
@@ -280,8 +280,7 @@ cmd_lab() {
         echo "  uv python install 3.12"
         echo "  uv venv --python 3.12 .venv"
         echo "  source .venv/bin/activate"
-        echo "  uv pip install numpy setuptools pybind11"
-        echo "  uv pip install --no-build-isolation -e ."
+        echo "  uv pip install -e ."
         return 1
     fi
 
@@ -290,7 +289,7 @@ cmd_lab() {
     # Ensure pyjags is importable
     if ! "$venv_python" -c "import pyjags" 2>/dev/null; then
         error "pyjags is not installed in .venv"
-        echo "Run:  source .venv/bin/activate && uv pip install --no-build-isolation -e ."
+        echo "Run:  source .venv/bin/activate && uv pip install -e ."
         return 1
     fi
 
@@ -363,8 +362,8 @@ Examples:
 
 Notes:
   - Most commands auto-start the container and install pyjags if needed.
-  - After editing pyjags/*.py files, changes take effect immediately (editable install).
-  - After editing pyjags/console.cc, run 'jagslab install' to recompile the C++ extension.
+  - After editing src/pyjags/*.py files, changes take effect immediately (editable install).
+  - After editing src/pyjags/console.cc, run 'jagslab install' to recompile the C++ extension.
   - Jupyter notebooks are served from ./notebooks/ on the host.
 EOF
 }
