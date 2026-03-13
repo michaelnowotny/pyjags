@@ -80,6 +80,9 @@ message(STATUS "JAGS libraries: ${JAGS_LIBRARIES}")
 # ---------------------------------------------------------------------------
 pybind11_add_module(console pyjags/console.cc)
 target_include_directories(console PRIVATE ${JAGS_INCLUDE_DIRS})
+if(JAGS_LIBRARY_DIRS)
+    target_link_directories(console PRIVATE ${JAGS_LIBRARY_DIRS})
+endif()
 target_link_libraries(console PRIVATE ${JAGS_LIBRARIES} Python3::NumPy)
 
 # Define PYJAGS_JAGS_VERSION macro (used in commented-out version check)
