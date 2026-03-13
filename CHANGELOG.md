@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   code lines with an arrow pointing to the error location.
 - Ruff linting and formatting configured in `pyproject.toml`.
 - Ruff lint check added to CI workflow.
+- Python 3.14 added to CI test matrix and wheel build matrix.
+- `twine check` validation step added to the release workflow.
 
 ### Changed
 - Codebase formatted with `ruff format` for consistent style.
