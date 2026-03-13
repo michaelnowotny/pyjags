@@ -11,10 +11,11 @@
 # GNU General Public License for more details.
 
 import numbers
+
 import numpy as np
 
-from .modules import load_module
 from .model import Model
+from .modules import load_module
 
 
 class DiffDIC:
@@ -33,8 +34,10 @@ class DiffDIC:
         elif isinstance(self.delta, numbers.Number):
             self._n = 1
         else:
-            raise TypeError(f'delta must either be a numpy array or a number '
-                            f'but is of type {type(delta)}')
+            raise TypeError(
+                f"delta must either be a numpy array or a number "
+                f"but is of type {type(delta)}"
+            )
 
     @property
     def delta(self):
@@ -43,8 +46,7 @@ class DiffDIC:
     def __str__(self):
 
         result = f"Difference: {np.sum(self.delta)}\n"
-        result += f"Sample standard error: " \
-                  f"{np.sqrt(self._n) * np.std(self.delta)}"
+        result += f"Sample standard error: {np.sqrt(self._n) * np.std(self.delta)}"
         return result
 
     def __repr__(self):
@@ -79,7 +81,7 @@ class DIC:
     def type(self):
         return self._type
 
-    def construct_report(self, digits = 2) -> str:
+    def construct_report(self, digits=2) -> str:
         result = ""
         deviance = np.sum(self.deviance)
         psum = np.sum(self.penalty)
@@ -91,13 +93,12 @@ class DIC:
 
     def __sub__(self, other):
         if not isinstance(other, DIC):
-            raise TypeError('The second object must be of type DIC.')
+            raise TypeError("The second object must be of type DIC.")
 
         if self.type != other.type:
             raise ValueError("incompatible dic object: different penalty types")
 
-        delta = self.deviance + self.penalty - \
-                other.deviance - other.penalty
+        delta = self.deviance + self.penalty - other.deviance - other.penalty
 
         return DiffDIC(delta)
 
@@ -108,10 +109,7 @@ class DIC:
         return self.__str__()
 
 
-def dic_samples(model,
-                n_iter,
-                thin = 1,
-                type = "pD"):
+def dic_samples(model, n_iter, thin=1, type="pD"):
     """
     This function draws samples from a model and computes the
     Deviance Information Criterion (DIC).
@@ -136,14 +134,12 @@ def dic_samples(model,
     if not isinstance(n_iter, int) or n_iter <= 0:
         raise ValueError("n_iter must be a positive integer")
 
-    load_module(name='dic')
+    load_module(name="dic")
 
     if type not in ("pD", "popt"):
         raise ValueError(f"type must either be pD or popt but is {type}")
     pdtype = type
-    model.console.setMonitors(names=("deviance", pdtype),
-                              thin=thin,
-                              type="mean")
+    model.console.setMonitors(names=("deviance", pdtype), thin=thin, type="mean")
 
     model.update(iterations=n_iter)
 
@@ -153,6 +149,4 @@ def dic_samples(model,
     model.console.clearMonitor(name="deviance", type="mean")
     model.console.clearMonitor(name=pdtype, type="mean")
 
-    return DIC(deviance=dev['deviance'],
-               penalty=dev[type],
-               type=type)
+    return DIC(deviance=dev["deviance"], penalty=dev[type], type=type)

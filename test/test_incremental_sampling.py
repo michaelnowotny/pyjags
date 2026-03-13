@@ -13,18 +13,17 @@ import numpy as np
 import pytest
 
 from pyjags.incremental_sampling import (
+    EffectiveSampleSizeAndRHatCriterion,
     EffectiveSampleSizeCriterion,
     RHatDeviationCriterion,
-    EffectiveSampleSizeAndRHatCriterion,
 )
-
 
 # ---------------------------------------------------------------------------
 # EffectiveSampleSizeCriterion
 # ---------------------------------------------------------------------------
 
-class TestESSCriterion:
 
+class TestESSCriterion:
     def test_properties(self):
         c = EffectiveSampleSizeCriterion(minimum_ess=200, variable_names=["mu"])
         assert c.minimum_ess == 200
@@ -51,12 +50,10 @@ class TestESSCriterion:
 # RHatDeviationCriterion
 # ---------------------------------------------------------------------------
 
-class TestRHatCriterion:
 
+class TestRHatCriterion:
     def test_properties(self):
-        c = RHatDeviationCriterion(
-            maximum_rhat_deviation=0.05, variable_names=["mu"]
-        )
+        c = RHatDeviationCriterion(maximum_rhat_deviation=0.05, variable_names=["mu"])
         assert c.maximum_rhat_deviation == 0.05
         assert c.variable_names == ["mu"]
 
@@ -80,8 +77,8 @@ class TestRHatCriterion:
 # EffectiveSampleSizeAndRHatCriterion
 # ---------------------------------------------------------------------------
 
-class TestCombinedCriterion:
 
+class TestCombinedCriterion:
     def test_properties(self):
         c = EffectiveSampleSizeAndRHatCriterion(
             minimum_ess=100,
@@ -121,8 +118,8 @@ class TestCombinedCriterion:
 # Verbose output (coverage for print branches)
 # ---------------------------------------------------------------------------
 
-class TestVerboseOutput:
 
+class TestVerboseOutput:
     def test_ess_verbose(self, capsys):
         samples = {"mu": np.random.randn(1, 500, 4)}
         criterion = EffectiveSampleSizeCriterion(minimum_ess=100)
@@ -152,12 +149,14 @@ class TestVerboseOutput:
 # sample_until (JAGS integration)
 # ---------------------------------------------------------------------------
 
+
 class TestSampleUntil:
     """Integration tests for sample_until — require a running JAGS engine."""
 
     @pytest.fixture()
     def simple_model(self):
         import pyjags
+
         return pyjags.Model(
             code="model { mu ~ dnorm(0, 1) }",
             chains=4,
@@ -167,6 +166,7 @@ class TestSampleUntil:
     @pytest.mark.slow
     def test_sample_until_ess(self, simple_model):
         from pyjags.incremental_sampling import sample_until
+
         criterion = EffectiveSampleSizeCriterion(minimum_ess=100)
         result = sample_until(
             simple_model,
@@ -182,6 +182,7 @@ class TestSampleUntil:
     @pytest.mark.slow
     def test_sample_until_with_previous_samples(self, simple_model):
         from pyjags.incremental_sampling import sample_until
+
         # Get initial samples
         initial = simple_model.sample(100)
         criterion = EffectiveSampleSizeCriterion(minimum_ess=200)
@@ -199,6 +200,7 @@ class TestSampleUntil:
     @pytest.mark.slow
     def test_sample_until_already_satisfied(self, simple_model):
         from pyjags.incremental_sampling import sample_until
+
         # Pre-generate enough samples that criterion is already met
         initial = simple_model.sample(1000)
         criterion = EffectiveSampleSizeCriterion(minimum_ess=10)
@@ -215,6 +217,7 @@ class TestSampleUntil:
     @pytest.mark.slow
     def test_sample_until_max_iterations(self, simple_model):
         from pyjags.incremental_sampling import sample_until
+
         # Set impossibly high ESS requirement with low max_iterations
         criterion = EffectiveSampleSizeCriterion(minimum_ess=1_000_000)
         result = sample_until(
@@ -230,6 +233,7 @@ class TestSampleUntil:
     @pytest.mark.slow
     def test_sample_until_iteration_function(self, simple_model):
         from pyjags.incremental_sampling import sample_until
+
         calls = []
 
         def track(samples, satisfied, total_iters):
@@ -251,6 +255,7 @@ class TestSampleUntil:
     @pytest.mark.slow
     def test_sample_until_chunk_exceeds_max_raises(self, simple_model):
         from pyjags.incremental_sampling import sample_until
+
         criterion = EffectiveSampleSizeCriterion(minimum_ess=100)
         with pytest.raises(ValueError, match="chunk_size must be less than"):
             sample_until(

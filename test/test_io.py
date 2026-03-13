@@ -9,24 +9,23 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import hypothesis.strategies as st
 import numpy as np
 import pytest
 from hypothesis import given
-import hypothesis.strategies as st
 from hypothesis.extra.numpy import arrays
 
 from pyjags.io import (
-    save_samples_dictionary_to_file,
     load_samples_dictionary_from_file,
+    save_samples_dictionary_to_file,
 )
-
 
 # ---------------------------------------------------------------------------
 # save / load
 # ---------------------------------------------------------------------------
 
-class TestSaveLoad:
 
+class TestSaveLoad:
     def test_basic_round_trip(self, tmp_path):
         path = str(tmp_path / "samples.hdf5")
         samples = {
@@ -72,15 +71,23 @@ class TestSaveLoad:
         samples = {}
         for i in range(n_vars):
             param_dim = data.draw(st.integers(min_value=1, max_value=5))
-            arr = data.draw(arrays(
-                dtype=np.float64,
-                shape=(param_dim, iterations, chains),
-                elements=st.floats(min_value=-1e6, max_value=1e6,
-                                   allow_nan=False, allow_infinity=False),
-            ))
+            arr = data.draw(
+                arrays(
+                    dtype=np.float64,
+                    shape=(param_dim, iterations, chains),
+                    elements=st.floats(
+                        min_value=-1e6,
+                        max_value=1e6,
+                        allow_nan=False,
+                        allow_infinity=False,
+                    ),
+                )
+            )
             samples[f"var_{i}"] = arr
 
-        import tempfile, os
+        import os
+        import tempfile
+
         fd, path = tempfile.mkstemp(suffix=".hdf5")
         os.close(fd)
         try:

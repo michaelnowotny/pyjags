@@ -15,3 +15,4 @@ scripts/output/
 _skbuild/
 CMakeCache.txt
 CMakeFiles/
+.hypothesis/

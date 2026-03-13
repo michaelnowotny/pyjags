@@ -23,7 +23,7 @@ import numpy as np
 
 def _convert_pyjags_samples_to_arviz(
     pyjags_samples: tp.Mapping[str, np.ndarray],
-) -> tp.Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Reshape a PyJAGS sample dictionary for ArviZ.
 
     Parameters
@@ -65,15 +65,17 @@ def _convert_pyjags_samples_to_arviz(
 
 
 def from_pyjags(
-    posterior: tp.Optional[tp.Mapping[str, np.ndarray]] = None,
+    posterior: tp.Mapping[str, np.ndarray] | None = None,
     *,
-    prior: tp.Optional[tp.Mapping[str, np.ndarray]] = None,
-    log_likelihood: tp.Optional[
-        tp.Union[str, tp.List[str], tp.Tuple[str, ...], tp.Mapping[str, str]]
-    ] = None,
-    coords: tp.Optional[tp.Mapping] = None,
-    dims: tp.Optional[tp.Mapping] = None,
-    save_warmup: tp.Optional[bool] = None,
+    prior: tp.Mapping[str, np.ndarray] | None = None,
+    log_likelihood: str
+    | list[str]
+    | tuple[str, ...]
+    | tp.Mapping[str, str]
+    | None = None,
+    coords: tp.Mapping | None = None,
+    dims: tp.Mapping | None = None,
+    save_warmup: bool | None = None,
     warmup_iterations: int = 0,
 ):
     """Convert PyJAGS posterior samples to an ArviZ ``DataTree``.
@@ -111,7 +113,7 @@ def from_pyjags(
     """
     import arviz as az
 
-    data: tp.Dict[str, tp.Dict[str, np.ndarray]] = {}
+    data: dict[str, dict[str, np.ndarray]] = {}
 
     if posterior is not None:
         posterior = dict(posterior)
@@ -134,7 +136,9 @@ def from_pyjags(
             data["warmup_posterior"] = _convert_pyjags_samples_to_arviz(warmup_post)
             if ll_samples is not None:
                 warmup_ll, ll_samples = _split_warmup(ll_samples, warmup_iterations)
-                data["warmup_log_likelihood"] = _convert_pyjags_samples_to_arviz(warmup_ll)
+                data["warmup_log_likelihood"] = _convert_pyjags_samples_to_arviz(
+                    warmup_ll
+                )
         elif warmup_iterations > 0:
             # Discard warmup without saving.
             _, posterior = _split_warmup(posterior, warmup_iterations)
@@ -157,10 +161,44 @@ def from_pyjags(
     )
 
 
+def summary(
+    samples: tp.Mapping[str, np.ndarray],
+    var_names: list[str] | None = None,
+    **kwargs,
+):
+    """Compute summary statistics for PyJAGS samples.
+
+    Convenience wrapper around ``arviz.summary()`` that converts PyJAGS
+    sample dictionaries automatically.
+
+    Parameters
+    ----------
+    samples
+        Dictionary mapping variable names to numpy arrays with shape
+        ``(*variable_dims, iterations, chains)`` as returned by
+        ``Model.sample()``.
+    var_names
+        Variables to include in the summary.  If ``None``, all variables
+        are included.
+    **kwargs
+        Additional keyword arguments passed to ``arviz.summary()``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Summary table with mean, sd, HDI, ESS, and Rhat for each
+        variable.
+    """
+    import arviz as az
+
+    idata = from_pyjags(samples)
+    return az.summary(idata, var_names=var_names, **kwargs)
+
+
 def _split_warmup(
-    samples: tp.Dict[str, np.ndarray],
+    samples: dict[str, np.ndarray],
     warmup_iterations: int,
-) -> tp.Tuple[tp.Dict[str, np.ndarray], tp.Dict[str, np.ndarray]]:
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     """Split sample arrays at the warmup boundary.
 
     The iteration axis is the second-to-last axis (``axis=-2``) in the

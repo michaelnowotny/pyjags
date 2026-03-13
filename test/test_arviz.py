@@ -9,21 +9,19 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import hypothesis.strategies as st
 import numpy as np
 import pytest
 from hypothesis import given
-from hypothesis.extra.numpy import arrays
-import hypothesis.strategies as st
 
-from pyjags.arviz import _convert_pyjags_samples_to_arviz, from_pyjags, _split_warmup
-
+from pyjags.arviz import _convert_pyjags_samples_to_arviz, _split_warmup, from_pyjags
 
 # ---------------------------------------------------------------------------
 # _convert_pyjags_samples_to_arviz
 # ---------------------------------------------------------------------------
 
-class TestConvertPyjagsSamplesToArviz:
 
+class TestConvertPyjagsSamplesToArviz:
     def test_scalar_variable(self):
         """Scalar variable: shape (1, iterations, chains) -> (chains, draws)."""
         iterations, chains = 100, 4
@@ -114,8 +112,8 @@ class TestConvertPyjagsSamplesToArviz:
 # from_pyjags
 # ---------------------------------------------------------------------------
 
-class TestFromPyjags:
 
+class TestFromPyjags:
     def _make_samples(self, iterations=100, chains=4):
         return {
             "mu": np.random.randn(1, iterations, chains),
@@ -249,6 +247,7 @@ class TestFromPyjags:
     def test_pyjags_public_api(self):
         """from_pyjags should be importable from the top-level pyjags package."""
         import pyjags
+
         assert callable(pyjags.from_pyjags)
 
 
@@ -256,8 +255,8 @@ class TestFromPyjags:
 # _split_warmup
 # ---------------------------------------------------------------------------
 
-class TestSplitWarmup:
 
+class TestSplitWarmup:
     def test_split_at_boundary(self):
         arr = np.arange(60).reshape(1, 20, 3).astype(float)
         warmup, actual = _split_warmup({"x": arr}, warmup_iterations=5)
