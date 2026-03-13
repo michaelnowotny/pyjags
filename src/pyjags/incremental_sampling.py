@@ -10,22 +10,18 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-import arviz as az
-import numpy as np
 import typing as tp
 
-from .arviz import from_pyjags
-from .chain_utilities import (
-    merge_consecutive_chains,
-    get_chain_length)
+import arviz as az
+import numpy as np
 
+from .arviz import from_pyjags
+from .chain_utilities import merge_consecutive_chains
 from .model import Model
 
 
 class EffectiveSampleSizeCriterion:
-    def __init__(self,
-                 minimum_ess: int,
-                 variable_names: tp.Optional[tp.List[str]] = None):
+    def __init__(self, minimum_ess: int, variable_names: list[str] | None = None):
         """
         This class implements a minimum effective sample size criterion to be
         used with sample_until.
@@ -39,31 +35,31 @@ class EffectiveSampleSizeCriterion:
         self._variable_names = variable_names
 
     @property
-    def variable_names(self) -> tp.Optional[tp.List[str]]:
+    def variable_names(self) -> list[str] | None:
         return self._variable_names
 
     @property
     def minimum_ess(self) -> int:
         return self._minimum_ess
 
-    def __call__(self,
-                 samples: tp.Dict[str, np.ndarray],
-                 verbose: bool) -> bool:
+    def __call__(self, samples: dict[str, np.ndarray], verbose: bool) -> bool:
         idata = from_pyjags(samples)
         ess = az.ess(idata, var_names=self.variable_names)
 
         minimum_ess = min(float(ess[var]) for var in ess.data_vars)
 
         if verbose:
-            print(f'minimum ess = {minimum_ess}')
+            print(f"minimum ess = {minimum_ess}")
 
         return minimum_ess >= self.minimum_ess
 
 
 class RHatDeviationCriterion:
-    def __init__(self,
-                 maximum_rhat_deviation: float,
-                 variable_names: tp.Optional[tp.List[str]] = None):
+    def __init__(
+        self,
+        maximum_rhat_deviation: float,
+        variable_names: list[str] | None = None,
+    ):
         """
         This class implements a maximum rhat deviation criterion to be used with
         sample_until.
@@ -77,16 +73,14 @@ class RHatDeviationCriterion:
         self._variable_names = variable_names
 
     @property
-    def variable_names(self) -> tp.Optional[tp.List[str]]:
+    def variable_names(self) -> list[str] | None:
         return self._variable_names
 
     @property
     def maximum_rhat_deviation(self) -> float:
         return self._maximum_rhat_deviation
 
-    def __call__(self,
-                 samples: tp.Dict[str, np.ndarray],
-                 verbose: bool) -> bool:
+    def __call__(self, samples: dict[str, np.ndarray], verbose: bool) -> bool:
         idata = from_pyjags(samples)
         rhat = az.rhat(idata, var_names=self.variable_names)
 
@@ -95,16 +89,18 @@ class RHatDeviationCriterion:
         )
 
         if verbose:
-            print(f'maximum rhat deviation = {maximum_rhat_deviation}')
+            print(f"maximum rhat deviation = {maximum_rhat_deviation}")
 
         return maximum_rhat_deviation <= self.maximum_rhat_deviation
 
 
 class EffectiveSampleSizeAndRHatCriterion:
-    def __init__(self,
-                 minimum_ess: int,
-                 maximum_rhat_deviation: float,
-                 variable_names: tp.Optional[tp.List[str]] = None):
+    def __init__(
+        self,
+        minimum_ess: int,
+        maximum_rhat_deviation: float,
+        variable_names: list[str] | None = None,
+    ):
         """
         This class implements a combined minimum effective sample size and
         maximum rhat deviation criterion to be used with sample_until.
@@ -120,7 +116,7 @@ class EffectiveSampleSizeAndRHatCriterion:
         self._variable_names = variable_names
 
     @property
-    def variable_names(self) -> tp.Optional[tp.List[str]]:
+    def variable_names(self) -> list[str] | None:
         return self._variable_names
 
     @property
@@ -131,9 +127,7 @@ class EffectiveSampleSizeAndRHatCriterion:
     def maximum_rhat_deviation(self) -> float:
         return self._maximum_rhat_deviation
 
-    def __call__(self,
-                 samples: tp.Dict[str, np.ndarray],
-                 verbose: bool) -> bool:
+    def __call__(self, samples: dict[str, np.ndarray], verbose: bool) -> bool:
         idata = from_pyjags(samples)
         ess = az.ess(idata, var_names=self.variable_names)
 
@@ -145,27 +139,30 @@ class EffectiveSampleSizeAndRHatCriterion:
             abs(float(rhat[var]) - 1.0) for var in rhat.data_vars
         )
         if verbose:
-            print(f'minimum ess = {minimum_ess}')
-            print(f'maximum rhat deviation = {maximum_rhat_deviation}')
+            print(f"minimum ess = {minimum_ess}")
+            print(f"maximum rhat deviation = {maximum_rhat_deviation}")
 
-        return minimum_ess >= self.minimum_ess and \
-               maximum_rhat_deviation <= self.maximum_rhat_deviation
+        return (
+            minimum_ess >= self.minimum_ess
+            and maximum_rhat_deviation <= self.maximum_rhat_deviation
+        )
 
 
-IterationFunctionType = tp.Callable[[tp.Dict[str, np.ndarray], bool, int], None]
+IterationFunctionType = tp.Callable[[dict[str, np.ndarray], bool, int], None]
 
 
-def sample_until(model: Model,
-                 criterion: tp.Callable[[tp.Dict[str, np.ndarray], bool], bool],
-                 previous_samples: tp.Optional[tp.Dict[str, np.ndarray]] = None,
-                 chunk_size: int = 5000,
-                 max_iterations: int = 250000,
-                 vars: tp.Sequence[str] = None,
-                 thin: int = 1,
-                 monitor_type: str = "trace",
-                 verbose: bool = False,
-                 iteration_function: tp.Optional[IterationFunctionType] = None) \
-        -> tp.Dict[str, np.ndarray]:
+def sample_until(
+    model: Model,
+    criterion: tp.Callable[[dict[str, np.ndarray], bool], bool],
+    previous_samples: dict[str, np.ndarray] | None = None,
+    chunk_size: int = 5000,
+    max_iterations: int = 250000,
+    vars: tp.Sequence[str] | None = None,
+    thin: int = 1,
+    monitor_type: str = "trace",
+    verbose: bool = False,
+    iteration_function: IterationFunctionType | None = None,
+) -> dict[str, np.ndarray]:
     """
     This function progressively samples from a model until a criterion is met.
 
@@ -193,8 +190,7 @@ def sample_until(model: Model,
     """
 
     if chunk_size > max_iterations:
-        raise ValueError('chunk_size must be less than or equal to '
-                         'max_iterations')
+        raise ValueError("chunk_size must be less than or equal to max_iterations")
 
     # if previous_samples is not None:
     #     print(f'chain_length at the beginning of sample_until = '
@@ -207,16 +203,14 @@ def sample_until(model: Model,
     while True:
         iterations = min(iterations_left, chunk_size)
 
-        new_samples = model.sample(iterations=iterations,
-                                   vars=vars,
-                                   thin=thin,
-                                   monitor_type=monitor_type)
+        new_samples = model.sample(
+            iterations=iterations, vars=vars, thin=thin, monitor_type=monitor_type
+        )
 
         if previous_samples is None:
             previous_samples = new_samples
         else:
-            previous_samples = \
-                merge_consecutive_chains((previous_samples, new_samples))
+            previous_samples = merge_consecutive_chains((previous_samples, new_samples))
             # print(f'chain_length at the after merging in sample_until = '
             #       f'{get_chain_length(previous_samples)}')
 
@@ -225,15 +219,16 @@ def sample_until(model: Model,
         criterion_satisfied = criterion(previous_samples, verbose)
 
         if iteration_function is not None:
-            iteration_function(previous_samples,
-                               criterion_satisfied,
-                               max_iterations - iterations_left)
+            iteration_function(
+                previous_samples, criterion_satisfied, max_iterations - iterations_left
+            )
 
         if criterion_satisfied:
             break
         elif iterations_left <= 1:
-            print('maximum number of iterations reached without '
-                  'satisfying the criterion')
+            print(
+                "maximum number of iterations reached without satisfying the criterion"
+            )
             break
 
     return previous_samples

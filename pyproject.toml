@@ -50,6 +50,7 @@ dev = [
     "pytest",
     "hypothesis",
     "pytest-cov",
+    "ruff",
 ]
 
 [project.urls]
@@ -72,6 +73,33 @@ provider = "scikit_build_core.metadata.setuptools_scm"
 [tool.setuptools_scm]
 # Tags have no prefix (e.g. "2.0.0", not "v2.0.0")
 tag_regex = "^(?P<version>[vV]?\\d+(?:\\.\\d+)*(?:[._-]?\\w+)*)$"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (let formatter handle)
+    "SIM108", # ternary operator — readability preference
+    "B905",   # zip() strict= — not adding to existing code
+    "RUF005", # collection concatenation — readability preference
+    "SIM105", # contextlib.suppress — readability preference
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pyjags"]
+combine-as-imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

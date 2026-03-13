@@ -9,11 +9,11 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import hypothesis.strategies as st
 import numpy as np
 import pytest
-import hypothesis.strategies as st
-from hypothesis.extra.numpy import arrays
 from hypothesis import settings
+from hypothesis.extra.numpy import arrays
 
 # ---------------------------------------------------------------------------
 # Hypothesis profiles: keep tests fast
@@ -27,28 +27,37 @@ settings.load_profile("dev")
 # Hypothesis strategies for PyJAGS sample dictionaries
 # ---------------------------------------------------------------------------
 
+
 @st.composite
-def sample_dicts(draw, min_vars=1, max_vars=3,
-                 min_iterations=2, max_iterations=50,
-                 min_chains=1, max_chains=4):
+def sample_dicts(
+    draw,
+    min_vars=1,
+    max_vars=3,
+    min_iterations=2,
+    max_iterations=50,
+    min_chains=1,
+    max_chains=4,
+):
     """Generate a valid PyJAGS sample dictionary.
 
     Each value has shape ``(param_dim, iterations, chains)`` with consistent
     iterations and chains across all variables.
     """
     n_vars = draw(st.integers(min_value=min_vars, max_value=max_vars))
-    iterations = draw(st.integers(min_value=min_iterations,
-                                  max_value=max_iterations))
+    iterations = draw(st.integers(min_value=min_iterations, max_value=max_iterations))
     chains = draw(st.integers(min_value=min_chains, max_value=max_chains))
     samples = {}
     for i in range(n_vars):
         param_dim = draw(st.integers(min_value=1, max_value=5))
-        arr = draw(arrays(
-            dtype=np.float64,
-            shape=(param_dim, iterations, chains),
-            elements=st.floats(min_value=-1e6, max_value=1e6,
-                               allow_nan=False, allow_infinity=False),
-        ))
+        arr = draw(
+            arrays(
+                dtype=np.float64,
+                shape=(param_dim, iterations, chains),
+                elements=st.floats(
+                    min_value=-1e6, max_value=1e6, allow_nan=False, allow_infinity=False
+                ),
+            )
+        )
         samples[f"var_{i}"] = arr
     return samples
 
@@ -56,6 +65,7 @@ def sample_dicts(draw, min_vars=1, max_vars=3,
 # ---------------------------------------------------------------------------
 # Pytest fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def scalar_samples():

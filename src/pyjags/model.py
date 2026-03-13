@@ -10,20 +10,22 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-__all__ = ['Model']
+__all__ = ["Model"]
 
 import collections
 import contextlib
-import numpy as np
+import re
 import sys
 import tempfile
 
-from .console import Console, DUMP_ALL, DUMP_DATA, DUMP_PARAMETERS
+import numpy as np
+
+from .console import DUMP_ALL, DUMP_DATA, DUMP_PARAMETERS, Console, JagsError
 from .modules import load_module
 from .progressbar import const_time_partition, progress_bar_factory
 
 # Special value indicating missing data in JAGS.
-JAGS_NA = -sys.float_info.max*(1-1e-15)
+JAGS_NA = -sys.float_info.max * (1 - 1e-15)
 
 
 def dict_to_jags(src):
@@ -37,8 +39,7 @@ def dict_to_jags(src):
     dst = {}
     for k, v in src.items():
         if np.ma.is_masked(v):
-            v = np.ma.array(data=v, dtype=np.double, ndmin=1,
-                            fill_value=JAGS_NA)
+            v = np.ma.array(data=v, dtype=np.double, ndmin=1, fill_value=JAGS_NA)
             v = np.ma.filled(v)
         else:
             v = np.atleast_1d(v)
@@ -69,7 +70,7 @@ def check_locale_compatibility():
     import locale
     import textwrap
 
-    if locale.localeconv().get('decimal_point') != '.':
+    if locale.localeconv().get("decimal_point") != ".":
         msg = """\
         JAGS requires locale that uses period as decimal point character. The standard C locale would be one possible choice. It can be configured as follows:
         > import locale
@@ -77,8 +78,35 @@ def check_locale_compatibility():
         raise ValueError(textwrap.dedent(msg))
 
 
+def _annotate_jags_error(error, code):
+    """Re-raise a JagsError with source context if a line number is mentioned.
+
+    When JAGS reports a syntax error like "syntax error on line 3", this
+    function annotates the error message with the surrounding model code
+    lines so the user can see what went wrong.
+    """
+    msg = str(error)
+    if code is None:
+        return error
+    match = re.search(r"line (\d+)", msg)
+    if not match:
+        return error
+    if isinstance(code, bytes):
+        code = code.decode("utf-8", errors="replace")
+    lineno = int(match.group(1))
+    lines = code.splitlines()
+    context_start = max(0, lineno - 3)
+    context_end = min(len(lines), lineno + 2)
+    context_lines = []
+    for i, line in enumerate(lines[context_start:context_end], start=context_start):
+        marker = "-->" if i + 1 == lineno else "   "
+        context_lines.append(f"  {marker} {i + 1}: {line}")
+    context = "\n".join(context_lines)
+    return JagsError(f"{msg}\n\nModel code:\n{context}")
+
+
 @contextlib.contextmanager
-def model_path(file=None, code=None, encoding='utf-8'):
+def model_path(file=None, code=None, encoding="utf-8"):
     """Utility function returning model path, if necessary creates a
     new temporary file with a model code written into it.
     """
@@ -93,11 +121,10 @@ def model_path(file=None, code=None, encoding='utf-8'):
             fh.flush()
             yield fh.name
     else:
-        raise ValueError('Either model name or model text must be provided.')
+        raise ValueError("Either model name or model text must be provided.")
 
 
 class MultiConsole:
-
     def __init__(self, chains, chains_per_thread):
         # Multiple consoles that emulate a single JAGS console.
         self.consoles = []
@@ -114,7 +141,7 @@ class MultiConsole:
             self.consoles.append(console)
             self.chains_per_console.append(console_chains)
 
-            for inner_chain in range(1, console_chains+1):
+            for inner_chain in range(1, console_chains + 1):
                 self.chains[outer_chain] = (console, inner_chain)
                 outer_chain += 1
 
@@ -125,7 +152,7 @@ class MultiConsole:
             c.checkModel(path)
 
     def compile(self, data, chains, generate_data):
-        assert(chains == len(self.chains))
+        assert chains == len(self.chains)
         for console, chains in zip(self.consoles, self.chains_per_console):
             console.compile(data, chains, generate_data)
 
@@ -151,8 +178,10 @@ class MultiConsole:
 
     def dumpMonitors(self, type, flat):
         ds = [c.dumpMonitors(type, flat) for c in self.consoles]
-        return {k: np.concatenate([d[k] for d in ds], axis=-1)
-                for k in set(k for d in ds for k in d.keys())}
+        return {
+            k: np.concatenate([d[k] for d in ds], axis=-1)
+            for k in set(k for d in ds for k in d)
+        }
 
     def initialize(self):
         for c in self.consoles:
@@ -208,10 +237,21 @@ class Model:
     using numpy MaskedArray.
     """
 
-    def __init__(self, code=None, data=None, init=None, chains=4, adapt=1000,
-                 file=None, encoding='utf-8', generate_data=True,
-                 progress_bar=True, refresh_seconds=None,
-                 threads=1, chains_per_thread=1):
+    def __init__(
+        self,
+        code=None,
+        data=None,
+        init=None,
+        chains=4,
+        adapt=1000,
+        file=None,
+        encoding="utf-8",
+        generate_data=True,
+        progress_bar=True,
+        refresh_seconds=None,
+        threads=1,
+        chains_per_thread=1,
+    ):
         """
         Create a JAGS model and run adaptation steps.
 
@@ -265,12 +305,14 @@ class Model:
         check_locale_compatibility()
 
         # Ensure that default modules are loaded.
-        load_module('basemod')
-        load_module('bugs')
-        load_module('lecuyer')
+        load_module("basemod")
+        load_module("bugs")
+        load_module("lecuyer")
 
         self.refresh_seconds = refresh_seconds or 0.5 if sys.stdout.isatty() else 5.0
-        self.progress_bar = progress_bar_factory(progress_bar, refresh_seconds=self.refresh_seconds)
+        self.progress_bar = progress_bar_factory(
+            progress_bar, refresh_seconds=self.refresh_seconds
+        )
         self.chains = chains
         self.threads = threads
         self.use_threads = self.threads > 1 and chains_per_thread < self.chains
@@ -281,7 +323,10 @@ class Model:
             self.console = Console()
 
         with model_path(file, code, encoding) as path:
-            self.console.checkModel(path)
+            try:
+                self.console.checkModel(path)
+            except JagsError as e:
+                raise _annotate_jags_error(e, code) from None
 
         self._init_compile(data, generate_data)
         self._init_parameters(init)
@@ -295,8 +340,7 @@ class Model:
         data = dict_to_jags(data)
         unused = set(data.keys()) - set(self.variables)
         if unused:
-            raise ValueError(
-                'Unused data for variables: {}'.format(','.join(unused)))
+            raise ValueError("Unused data for variables: {}".format(",".join(unused)))
         self.console.compile(data, self.chains, generate_data)
 
     def _init_parameters(self, init):
@@ -306,33 +350,36 @@ class Model:
         if isinstance(init, collections.abc.Mapping):
             init = [init] * self.chains
         elif not isinstance(init, collections.abc.Sequence):
-            raise ValueError('Init should be a sequence or a dictionary.')
+            raise ValueError("Init should be a sequence or a dictionary.")
         if len(init) != self.chains:
             raise ValueError(
-                'Length of init sequence should equal the number of chains.')
+                "Length of init sequence should equal the number of chains."
+            )
 
         if self.use_threads:
-            rngs = Console.parallel_rngs('lecuyer::RngStream', self.chains)
+            rngs = Console.parallel_rngs("lecuyer::RngStream", self.chains)
         else:
-            rngs = [{'.RNG.name': None, '.RNG.seed': None}] * self.chains
+            rngs = [{".RNG.name": None, ".RNG.seed": None}] * self.chains
 
         for data, rng, chain in zip(init, rngs, range(1, self.chains + 1)):
             data = dict(data)
-            rng_name = data.pop('.RNG.name', None)
+            rng_name = data.pop(".RNG.name", None)
             if self.use_threads and rng_name is None:
-                rng_name = rng['.RNG.name']
-                data['.RNG.state'] = rng['.RNG.state']
+                rng_name = rng[".RNG.name"]
+                data[".RNG.state"] = rng[".RNG.state"]
             if rng_name is not None:
                 self.console.setRNGname(rng_name, chain)
             data = dict_to_jags(data)
 
             unused = set(data.keys())
             unused.difference_update(self.variables)
-            unused.difference_update(['.RNG.seed', '.RNG.state'])
+            unused.difference_update([".RNG.seed", ".RNG.state"])
             if unused:
                 raise ValueError(
-                    'Unused initial values in chain {} for variables: {}'.format(
-                        chain, ','.join(unused)))
+                    "Unused initial values in chain {} for variables: {}".format(
+                        chain, ",".join(unused)
+                    )
+                )
             self.console.setParameters(data, chain)
 
     def _update(self, iterations, header):
@@ -364,22 +411,26 @@ class Model:
                         break
                     console.update(steps)
                     progress.update(chains * steps)
-            fs = [executor.submit(update, console, chains)
-                  for console, chains in zip(self.console.consoles,
-                                             self.console.chains_per_console)]
+
+            fs = [
+                executor.submit(update, console, chains)
+                for console, chains in zip(
+                    self.console.consoles, self.console.chains_per_console
+                )
+            ]
             try:
                 (done, not_done) = wait(fs, return_when=ALL_COMPLETED)
                 for d in done:
                     d.result()
-                for d in not_done:
-                    assert(False)
+                for _d in not_done:
+                    raise AssertionError("Not all futures completed")
             except KeyboardInterrupt:
                 interrupt.set()
                 raise
 
     def update(self, iterations):
         """Updates the model for given number of iterations."""
-        self._update(iterations, 'updating: ')
+        self._update(iterations, "updating: ")
 
     def sample(self, iterations, vars=None, thin=1, monitor_type="trace"):
         """
@@ -410,7 +461,7 @@ class Model:
             for name in vars:
                 self.console.setMonitor(name, thin, monitor_type)
                 monitored.append(name)
-            self._update(iterations, 'sampling: ')
+            self._update(iterations, "sampling: ")
             samples = self.console.dumpMonitors(monitor_type, False)
             samples = dict_from_jags(samples)
         finally:
@@ -429,7 +480,7 @@ class Model:
         if not self.console.isAdapting():
             # Model does not require adaptation
             return True
-        self._update(iterations, 'adapting: ')
+        self._update(iterations, "adapting: ")
         return self.console.checkAdaptation()
 
     @property
@@ -446,16 +497,20 @@ class Model:
         parameters
         data
         """
-        return [dict_from_jags(self.console.dumpState(DUMP_ALL, chain))
-                for chain in range(1, self.chains + 1)]
+        return [
+            dict_from_jags(self.console.dumpState(DUMP_ALL, chain))
+            for chain in range(1, self.chains + 1)
+        ]
 
     @property
     def parameters(self):
         """Values of model parameters for each chain. Includes name of random
         number generator as '.RNG.name' and its state as '.RNG.state'.
         """
-        return [dict_from_jags(self.console.dumpState(DUMP_PARAMETERS, chain))
-                for chain in range(1, self.chains + 1)]
+        return [
+            dict_from_jags(self.console.dumpState(DUMP_PARAMETERS, chain))
+            for chain in range(1, self.chains + 1)
+        ]
 
     @property
     def data(self):

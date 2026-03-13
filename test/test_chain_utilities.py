@@ -9,27 +9,25 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import hypothesis.strategies as st
 import numpy as np
 import pytest
 from hypothesis import given
-import hypothesis.strategies as st
-from hypothesis.extra.numpy import arrays
 
 from pyjags.chain_utilities import (
-    get_chain_length,
     discard_burn_in_samples,
+    extract_final_iteration_from_samples_for_initialization,
+    get_chain_length,
     merge_consecutive_chains,
     merge_parallel_chains,
-    extract_final_iteration_from_samples_for_initialization,
 )
-
 
 # ---------------------------------------------------------------------------
 # get_chain_length
 # ---------------------------------------------------------------------------
 
-class TestGetChainLength:
 
+class TestGetChainLength:
     def test_single_variable(self):
         samples = {"mu": np.random.randn(1, 100, 4)}
         assert get_chain_length(samples) == 100
@@ -67,8 +65,8 @@ class TestGetChainLength:
 # discard_burn_in_samples
 # ---------------------------------------------------------------------------
 
-class TestDiscardBurnIn:
 
+class TestDiscardBurnIn:
     def test_discard_zero(self):
         arr = np.random.randn(2, 100, 3)
         result = discard_burn_in_samples({"x": arr}, burn_in=0)
@@ -112,8 +110,8 @@ class TestDiscardBurnIn:
 # merge_consecutive_chains
 # ---------------------------------------------------------------------------
 
-class TestMergeConsecutiveChains:
 
+class TestMergeConsecutiveChains:
     def test_two_chunks(self):
         a = np.random.randn(2, 30, 3)
         b = np.random.randn(2, 20, 3)
@@ -166,11 +164,10 @@ class TestMergeConsecutiveChains:
     )
     def test_total_iterations_property(self, param_dim, chains, n_chunks, data):
         lengths = [
-            data.draw(st.integers(min_value=1, max_value=20))
-            for _ in range(n_chunks)
+            data.draw(st.integers(min_value=1, max_value=20)) for _ in range(n_chunks)
         ]
         chunks = [
-            {"x": np.random.randn(param_dim, l, chains)} for l in lengths
+            {"x": np.random.randn(param_dim, length, chains)} for length in lengths
         ]
         result = merge_consecutive_chains(chunks)
         assert result["x"].shape == (param_dim, sum(lengths), chains)
@@ -180,8 +177,8 @@ class TestMergeConsecutiveChains:
 # merge_parallel_chains
 # ---------------------------------------------------------------------------
 
-class TestMergeParallelChains:
 
+class TestMergeParallelChains:
     def test_two_sets(self):
         a = np.random.randn(2, 50, 2)
         b = np.random.randn(2, 50, 3)
@@ -215,13 +212,9 @@ class TestMergeParallelChains:
     )
     def test_total_chains_property(self, param_dim, iterations, n_sets, data):
         chain_counts = [
-            data.draw(st.integers(min_value=1, max_value=4))
-            for _ in range(n_sets)
+            data.draw(st.integers(min_value=1, max_value=4)) for _ in range(n_sets)
         ]
-        sets = [
-            {"x": np.random.randn(param_dim, iterations, c)}
-            for c in chain_counts
-        ]
+        sets = [{"x": np.random.randn(param_dim, iterations, c)} for c in chain_counts]
         result = merge_parallel_chains(sets)
         assert result["x"].shape == (param_dim, iterations, sum(chain_counts))
 
@@ -230,8 +223,8 @@ class TestMergeParallelChains:
 # extract_final_iteration_from_samples_for_initialization
 # ---------------------------------------------------------------------------
 
-class TestExtractFinalIteration:
 
+class TestExtractFinalIteration:
     def test_scalar_variable(self):
         arr = np.arange(12).reshape(1, 4, 3).astype(float)
         result = extract_final_iteration_from_samples_for_initialization(
@@ -249,9 +242,7 @@ class TestExtractFinalIteration:
         )
         assert len(result) == 4
         for chain in range(4):
-            np.testing.assert_array_equal(
-                result[chain]["beta"], arr[:, -1, chain]
-            )
+            np.testing.assert_array_equal(result[chain]["beta"], arr[:, -1, chain])
 
     def test_multiple_variables(self):
         samples = {
