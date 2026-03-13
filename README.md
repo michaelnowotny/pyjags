@@ -29,8 +29,8 @@ License: GPLv2
 
 ### Prerequisites
 
-A working JAGS installation and a C++ compiler are required. PyJAGS uses
-`pkg-config` to locate the JAGS headers and libraries at build time.
+A working JAGS installation, a C++ compiler, and CMake are required. PyJAGS uses
+CMake with `pkg-config` to locate the JAGS headers and libraries at build time.
 
 ### macOS
 
@@ -87,21 +87,10 @@ To install from source (for development):
 ```bash
 source .venv/bin/activate
 
-# Clone with submodules (pybind11)
-git clone --recurse-submodules https://github.com/michaelnowotny/pyjags.git
+git clone https://github.com/michaelnowotny/pyjags.git
 cd pyjags
 
-# Recommended: auto-update submodules on git pull / checkout
-git config submodule.recurse true
-
-uv pip install numpy setuptools pybind11
-uv pip install --no-build-isolation -e .
-```
-
-If you have already cloned the repository without `--recurse-submodules`, run:
-
-```bash
-git submodule update --init
+uv pip install -e .
 ```
 
 ### Linux
@@ -125,12 +114,10 @@ pip install pyjags
 Or from source:
 
 ```bash
-git clone --recurse-submodules https://github.com/michaelnowotny/pyjags.git
+git clone https://github.com/michaelnowotny/pyjags.git
 cd pyjags
-git config submodule.recurse true
 
-pip install numpy setuptools pybind11
-pip install --no-build-isolation -e .
+pip install -e .
 ```
 
 ## Notebooks
@@ -280,23 +267,20 @@ which brew
 Make sure `PKG_CONFIG_PATH` points to the ARM Homebrew pkgconfig directory
 (`/opt/homebrew/lib/pkgconfig`) so that the build picks up the correct library.
 
-### `Please install numpy first`
+### CMake errors during build
 
-NumPy must be installed before building PyJAGS because `setup.py` imports it at
-build time. Install it first, then use `--no-build-isolation`:
-
-```bash
-pip install numpy setuptools pybind11
-pip install --no-build-isolation -e .
-```
-
-### pybind11 compilation errors with Python 3.11+
-
-If you see errors about `PyFrameObject` being an incomplete type, the pybind11
-submodule is too old. Update it:
+PyJAGS uses CMake (via scikit-build-core) to find and link against JAGS. If
+the build fails with CMake errors, ensure CMake is installed:
 
 ```bash
-git submodule update --init pybind11
+# macOS
+brew install cmake
+
+# Debian/Ubuntu
+sudo apt-get install cmake
+
+# pip
+pip install cmake
 ```
 
 ## Useful Links

@@ -16,13 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jags \
     pkg-config \
     g++ \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Suppress "running as root" pip warning (expected in a container)
 ENV PIP_ROOT_USER_ACTION=ignore
 
 # Core build and runtime dependencies
-RUN pip install --no-cache-dir numpy setuptools arviz h5py
+RUN pip install --no-cache-dir numpy arviz h5py pybind11 scikit-build-core setuptools-scm
 
 # Allow git operations on the bind-mounted source directory
 RUN git config --global --add safe.directory /pyjags

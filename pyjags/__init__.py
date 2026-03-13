@@ -33,7 +33,6 @@ from .io import (
 
 from .model import *
 from .modules import *
-from ._version import get_versions
 
-__version__ = get_versions()['version']
-del get_versions
+from importlib.metadata import version as _metadata_version
+__version__ = _metadata_version("pyjags")

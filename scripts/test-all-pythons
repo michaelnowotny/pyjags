@@ -74,7 +74,7 @@ for ver in "${VERSIONS[@]}"; do
         -v "$PROJECT_ROOT:/pyjags" \
         -w /pyjags \
         "$image" \
-        bash -c "pip install --no-build-isolation -e . -q 2>&1 && pip install pytest hypothesis -q 2>&1 && python -m pytest test/ -v" 2>&1; then
+        bash -c "pip install -e . -q 2>&1 && pip install pytest hypothesis -q 2>&1 && python -m pytest test/ -v" 2>&1; then
         echo ""
         echo -e "${GREEN}  PASSED: Python ${ver}${NC}"
         PASSED+=("$ver")

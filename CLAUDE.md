@@ -20,17 +20,13 @@ Two-tier Docker architecture: `Dockerfile` (base — JAGS + build tools + core d
 
 ## Build & Install
 
-Requires JAGS library installed on the system. On Linux/macOS, `pkg-config` is used to locate JAGS. Inside the Docker container, `--no-build-isolation` is required because numpy must be importable at build time.
+Uses scikit-build-core + CMake as the build backend. CMake finds JAGS via pkg-config (primary) with fallback path search for conda/Homebrew. Requires JAGS, a C++ compiler, and CMake installed on the system.
 
 ```bash
-# Inside Docker container
-pip install --no-build-isolation -e .
-
-# Outside Docker (system JAGS required)
 pip install -e .
 ```
 
-The build compiles a single C++ extension (`pyjags/console.cc`) using pybind11 and C++14.
+The build compiles a single C++ extension (`pyjags/console.cc`) using pybind11 and C++14. Build dependencies (pybind11, numpy, scikit-build-core, setuptools-scm) are handled automatically via build isolation.
 
 ## Testing
 
@@ -90,7 +86,10 @@ Sample arrays returned by `Model.sample()` have shape `(*variable_dims, iteratio
 - **arviz >= 1.0** — Bayesian analysis/visualization; used in `incremental_sampling.py` for ESS/Rhat and in `pyjags/arviz.py` for `from_pyjags()` converter
 - **h5py** — HDF5 file I/O for sample persistence
 - **JAGS** — external system library (must be installed separately)
-- **pybind11** — included as git submodule in `pybind11/`
+- **pybind11** — build dependency (installed automatically via build isolation)
+- **CMake >= 3.15** — build dependency for finding JAGS and compiling the extension
+- **scikit-build-core** — build backend (declared in `pyproject.toml`)
+- **setuptools-scm** — version inference from git tags
 
 ## Copyright and Licensing
 
@@ -133,4 +132,4 @@ Every source file (Python, C++, shell scripts, Dockerfiles) **must** carry a GPL
 
 ## Version Management
 
-Uses versioneer with git tags (no prefix) for automatic version inference.
+Uses setuptools-scm with git tags (no prefix, e.g. `2.0.0` not `v2.0.0`) for automatic version inference. The version is read at runtime via `importlib.metadata.version("pyjags")`. Configuration is in `pyproject.toml` under `[tool.setuptools-scm]`.
