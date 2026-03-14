@@ -1,0 +1,13 @@
+# Pre-commit hooks for PyJAGS
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(src|test)/
+      - id: ruff-format
+        files: ^(src|test)/

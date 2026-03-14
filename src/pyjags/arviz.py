@@ -59,7 +59,7 @@ def _convert_pyjags_samples_to_arviz(
         else:
             # Shape (*var_dims, iterations, chains) — vector/matrix variable.
             # -> (chains, draws, *var_dims)
-            new_axes = [n_dims - 1, n_dims - 2] + list(range(n_dims - 2))
+            new_axes = [n_dims - 1, n_dims - 2, *list(range(n_dims - 2))]
             result[name] = np.transpose(arr, axes=new_axes)
     return result
 

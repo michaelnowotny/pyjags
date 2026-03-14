@@ -1,4 +1,11 @@
 # PyJAGS: The Python Interface to JAGS
+
+[![CI](https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml/badge.svg)](https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/pyjags)](https://pypi.org/project/pyjags/)
+[![Python](https://img.shields.io/pypi/pyversions/pyjags)](https://pypi.org/project/pyjags/)
+[![License](https://img.shields.io/pypi/l/pyjags)](https://github.com/michaelnowotny/pyjags/blob/master/LICENSE)
+[![codecov](https://codecov.io/gh/michaelnowotny/pyjags/graph/badge.svg)](https://codecov.io/gh/michaelnowotny/pyjags)
+
 PyJAGS provides a Python interface to JAGS, a program for analysis of Bayesian
 hierarchical models using Markov Chain Monte Carlo (MCMC) simulation.
 
@@ -221,6 +228,23 @@ cp .env.example .env          # Edit .env to customize (e.g., Jupyter port)
 ./scripts/jagslab test test.test_model.TestModel.test_samples_shape  # Single test
 ```
 
+### Pre-commit Hooks
+
+PyJAGS uses [pre-commit](https://pre-commit.com/) to run ruff linting and formatting
+checks before each commit, preventing CI failures:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+After installation, ruff will automatically check and fix files in `src/` and `test/`
+on every `git commit`. To run manually against all files:
+
+```bash
+pre-commit run --all-files
+```
+
 ### Working with the C++ Extension
 
 PyJAGS includes a C++ extension (`src/pyjags/console.cc`) that wraps the JAGS library
@@ -302,5 +326,8 @@ pip install cmake
 * PyJAGS was originally created by Tomasz Miasko
 * As of May 2020, PyJAGS is developed by Michael Nowotny
 * [Max Schulist](https://github.com/mschulist) ([PR #1](https://github.com/michaelnowotny/pyjags/pull/1))
-  proposed migrating to scikit-build-core, pyproject.toml, and pytest — ideas that
+  proposed migrating to scikit-build-core, pyproject.toml, and pytest, ideas that
   inspired the packaging modernization in version 2.1
+* [Scout Jarman](https://github.com/scoutiii) ([PR #2](https://github.com/michaelnowotny/pyjags/pull/2))
+  independently proposed CI/CD workflows, CMake builds, and JAGS install scripts,
+  reinforcing the direction of the modernization effort

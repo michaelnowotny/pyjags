@@ -153,7 +153,7 @@ class MultiConsole:
 
     def compile(self, data, chains, generate_data):
         assert chains == len(self.chains)
-        for console, chains in zip(self.consoles, self.chains_per_console):
+        for console, chains in zip(self.consoles, self.chains_per_console, strict=True):
             console.compile(data, chains, generate_data)
 
     def setRNGname(self, name, chain):
@@ -361,7 +361,7 @@ class Model:
         else:
             rngs = [{".RNG.name": None, ".RNG.seed": None}] * self.chains
 
-        for data, rng, chain in zip(init, rngs, range(1, self.chains + 1)):
+        for data, rng, chain in zip(init, rngs, range(1, self.chains + 1), strict=True):
             data = dict(data)
             rng_name = data.pop(".RNG.name", None)
             if self.use_threads and rng_name is None:
@@ -383,10 +383,7 @@ class Model:
             self.console.setParameters(data, chain)
 
     def _update(self, iterations, header):
-        if self.use_threads:
-            method = self._update_parallel
-        else:
-            method = self._update_sequential
+        method = self._update_parallel if self.use_threads else self._update_sequential
 
         with self.progress_bar(self.chains * iterations, header=header) as pb:
             method(pb, iterations)
@@ -415,7 +412,9 @@ class Model:
             fs = [
                 executor.submit(update, console, chains)
                 for console, chains in zip(
-                    self.console.consoles, self.console.chains_per_console
+                    self.console.consoles,
+                    self.console.chains_per_console,
+                    strict=True,
                 )
             ]
             try:
