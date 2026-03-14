@@ -228,6 +228,23 @@ cp .env.example .env          # Edit .env to customize (e.g., Jupyter port)
 ./scripts/jagslab test test.test_model.TestModel.test_samples_shape  # Single test
 ```
 
+### Pre-commit Hooks
+
+PyJAGS uses [pre-commit](https://pre-commit.com/) to run ruff linting and formatting
+checks before each commit, preventing CI failures:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+After installation, ruff will automatically check and fix files in `src/` and `test/`
+on every `git commit`. To run manually against all files:
+
+```bash
+pre-commit run --all-files
+```
+
 ### Working with the C++ Extension
 
 PyJAGS includes a C++ extension (`src/pyjags/console.cc`) that wraps the JAGS library

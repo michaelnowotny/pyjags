@@ -9,6 +9,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import contextlib
+
 import numpy as np
 import pytest
 
@@ -146,10 +148,8 @@ class TestDicSamples:
         )
         yield model
         # Clean up: unload dic module so it doesn't pollute other tests
-        try:
+        with contextlib.suppress(Exception):
             pyjags.unload_module("dic")
-        except Exception:
-            pass
 
     @pytest.mark.slow
     def test_dic_samples_returns_dic(self, bernoulli_model):

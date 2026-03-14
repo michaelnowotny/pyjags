@@ -23,7 +23,7 @@ name = "pyjags"
 dynamic = ["version"]
 description = "Python interface to JAGS for Bayesian analysis via MCMC"
 readme = "README.md"
-license = "GPL-2.0-only"
+license = {text = "GPL-2.0-only"}
 requires-python = ">=3.12"
 authors = [
     { name = "Michael Nowotny", email = "nowotnym@gmail.com" },
@@ -91,10 +91,6 @@ select = [
 ]
 ignore = [
     "E501",   # line too long (let formatter handle)
-    "SIM108", # ternary operator — readability preference
-    "B905",   # zip() strict= — not adding to existing code
-    "RUF005", # collection concatenation — readability preference
-    "SIM105", # contextlib.suppress — readability preference
 ]
 
 [tool.ruff.lint.isort]

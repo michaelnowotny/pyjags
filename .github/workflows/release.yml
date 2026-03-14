@@ -122,6 +122,11 @@ jobs:
       - name: List artifacts
         run: ls -la dist/
 
+      - name: Validate packages
+        run: |
+          pip install twine
+          twine check dist/*
+
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
