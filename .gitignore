@@ -16,3 +16,4 @@ _skbuild/
 CMakeCache.txt
 CMakeFiles/
 .hypothesis/
+.coverage
