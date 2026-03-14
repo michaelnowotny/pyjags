@@ -1,4 +1,11 @@
 # PyJAGS: The Python Interface to JAGS
+
+[![CI](https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml/badge.svg)](https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/pyjags)](https://pypi.org/project/pyjags/)
+[![Python](https://img.shields.io/pypi/pyversions/pyjags)](https://pypi.org/project/pyjags/)
+[![License](https://img.shields.io/pypi/l/pyjags)](https://github.com/michaelnowotny/pyjags/blob/master/LICENSE)
+[![codecov](https://codecov.io/gh/michaelnowotny/pyjags/graph/badge.svg)](https://codecov.io/gh/michaelnowotny/pyjags)
+
 PyJAGS provides a Python interface to JAGS, a program for analysis of Bayesian
 hierarchical models using Markov Chain Monte Carlo (MCMC) simulation.
 
