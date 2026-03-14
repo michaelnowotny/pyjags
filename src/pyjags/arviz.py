@@ -73,6 +73,8 @@ def from_pyjags(
     | tuple[str, ...]
     | tp.Mapping[str, str]
     | None = None,
+    observed_data: tp.Mapping[str, np.ndarray] | None = None,
+    constant_data: tp.Mapping[str, np.ndarray] | None = None,
     coords: tp.Mapping | None = None,
     dims: tp.Mapping | None = None,
     save_warmup: bool | None = None,
@@ -94,6 +96,12 @@ def from_pyjags(
         - a single variable name (str),
         - a list/tuple of variable names (extracted from *posterior*),
         - a mapping ``{obs_name: posterior_var_name}``.
+    observed_data
+        Dictionary of observed data arrays.  Stored in the
+        ``observed_data`` group of the returned ``DataTree``.
+    constant_data
+        Dictionary of constant (non-random) data arrays.  Stored in the
+        ``constant_data`` group of the returned ``DataTree``.
     coords
         Mapping of dimension names to coordinate values, forwarded to
         ``arviz.from_dict``.
@@ -152,13 +160,29 @@ def from_pyjags(
     if prior is not None:
         data["prior"] = _convert_pyjags_samples_to_arviz(prior)
 
-    return az.from_dict(
+    if observed_data is not None:
+        data["observed_data"] = dict(observed_data)
+
+    if constant_data is not None:
+        data["constant_data"] = dict(constant_data)
+
+    result = az.from_dict(
         data,
         sample_dims=["chain", "draw"],
         save_warmup=save_warmup if save_warmup and warmup_iterations > 0 else None,
         coords=coords,
         dims=dims,
     )
+
+    # Set metadata attributes following ArviZ conventions.
+    import contextlib
+    from importlib.metadata import version as _metadata_version
+
+    result.attrs["inference_library"] = "pyjags"
+    with contextlib.suppress(Exception):
+        result.attrs["inference_library_version"] = _metadata_version("pyjags")
+
+    return result
 
 
 def summary(
