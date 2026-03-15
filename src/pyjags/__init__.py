@@ -12,7 +12,13 @@
 
 from importlib.metadata import version as _metadata_version
 
-from .arviz import from_pyjags as from_pyjags, summary as summary
+from .arviz import (
+    compare as compare,
+    from_pyjags as from_pyjags,
+    loo as loo,
+    summary as summary,
+    waic as waic,
+)
 from .chain_utilities import (
     discard_burn_in_samples as discard_burn_in_samples,
     extract_final_iteration_from_samples_for_initialization as extract_final_iteration_from_samples_for_initialization,

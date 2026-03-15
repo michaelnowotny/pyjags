@@ -235,3 +235,114 @@ def _split_warmup(
         warmup[name] = arr[..., :warmup_iterations, :]
         actual[name] = arr[..., warmup_iterations:, :]
     return warmup, actual
+
+
+def loo(
+    posterior: tp.Mapping[str, np.ndarray],
+    *,
+    log_likelihood: str | list[str] | tuple[str, ...] | tp.Mapping[str, str],
+    **kwargs,
+):
+    """Compute Pareto-smoothed importance-sampling leave-one-out cross-validation.
+
+    Convenience wrapper around ``arviz.loo()`` that accepts PyJAGS sample
+    dictionaries directly.
+
+    Parameters
+    ----------
+    posterior
+        Sample dictionary as returned by ``Model.sample()``.  Must
+        contain the log-likelihood variable(s) specified in
+        *log_likelihood*.
+    log_likelihood
+        Variable(s) to use as pointwise log-likelihood.  Accepts the
+        same forms as ``from_pyjags(log_likelihood=...)``.
+    **kwargs
+        Additional keyword arguments forwarded to ``arviz.loo()``.
+
+    Returns
+    -------
+    arviz.ELPDData
+        LOO-CV results including ``elpd_loo``, ``p_loo``, and
+        ``pareto_k`` diagnostics.
+    """
+    import arviz as az
+
+    idata = from_pyjags(posterior, log_likelihood=log_likelihood)
+    return az.loo(idata, **kwargs)
+
+
+def waic(
+    posterior: tp.Mapping[str, np.ndarray],
+    *,
+    log_likelihood: str | list[str] | tuple[str, ...] | tp.Mapping[str, str],
+    **kwargs,
+):
+    """Compute the Widely Applicable Information Criterion (WAIC).
+
+    Convenience wrapper around ``arviz.waic()`` that accepts PyJAGS sample
+    dictionaries directly.
+
+    Parameters
+    ----------
+    posterior
+        Sample dictionary as returned by ``Model.sample()``.  Must
+        contain the log-likelihood variable(s) specified in
+        *log_likelihood*.
+    log_likelihood
+        Variable(s) to use as pointwise log-likelihood.  Accepts the
+        same forms as ``from_pyjags(log_likelihood=...)``.
+    **kwargs
+        Additional keyword arguments forwarded to ``arviz.waic()``.
+
+    Returns
+    -------
+    arviz.ELPDData
+        WAIC results including ``elpd_waic``, ``p_waic``, and
+        pointwise values.
+    """
+    import arviz as az
+
+    idata = from_pyjags(posterior, log_likelihood=log_likelihood)
+    return az.waic(idata, **kwargs)
+
+
+def compare(
+    model_dict: tp.Mapping[str, tp.Mapping[str, np.ndarray]],
+    *,
+    log_likelihood: str | list[str] | tuple[str, ...] | tp.Mapping[str, str],
+    ic: str = "loo",
+    **kwargs,
+):
+    """Compare multiple models using LOO-CV or WAIC.
+
+    Convenience wrapper around ``arviz.compare()`` that accepts PyJAGS
+    sample dictionaries directly.
+
+    Parameters
+    ----------
+    model_dict
+        Mapping of model names to sample dictionaries.  Each sample
+        dictionary must contain the log-likelihood variable(s)
+        specified in *log_likelihood*.
+    log_likelihood
+        Variable(s) to use as pointwise log-likelihood.  Applied to
+        all models.
+    ic : str
+        Information criterion: ``"loo"`` (default) or ``"waic"``.
+    **kwargs
+        Additional keyword arguments forwarded to ``arviz.compare()``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Comparison table ranked by the chosen information criterion,
+        with columns for ``elpd``, ``p``, ``weight``, and more.
+    """
+    import arviz as az
+
+    idata_dict = {
+        name: from_pyjags(samples, log_likelihood=log_likelihood)
+        for name, samples in model_dict.items()
+    }
+    return az.compare(idata_dict, ic=ic, **kwargs)
