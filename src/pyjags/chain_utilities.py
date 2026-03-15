@@ -10,6 +10,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+"""Utilities for manipulating MCMC sample dictionaries.
+
+Functions for discarding burn-in, merging chains from consecutive or
+parallel sampling runs, and extracting final iterations for model
+re-initialization.
+"""
+
 import numbers
 import typing as tp
 
@@ -17,18 +24,24 @@ import numpy as np
 
 
 def get_chain_length(samples: dict[str, np.ndarray]) -> int:
-    """
-    This function determines the length of the chains in the samples dictionary
+    """Determine the length of the chains in a samples dictionary.
 
     Parameters
     ----------
-    samples: a dictionary mapping variable names to Numpy arrays with shape
-             (parameter_dimension, chain_length, number_of_chains)
+    samples : dict[str, numpy.ndarray]
+        Dictionary mapping variable names to numpy arrays with shape
+        ``(*variable_dims, chain_length, n_chains)``.
 
     Returns
     -------
-    the chain length
+    int
+        The chain length (number of iterations) common to all variables.
 
+    Raises
+    ------
+    ValueError
+        If *samples* is empty or if chain lengths are inconsistent
+        across variables.
     """
     chain_lengths = set(value.shape[1] for key, value in samples.items())
 
@@ -44,21 +57,21 @@ def get_chain_length(samples: dict[str, np.ndarray]) -> int:
 def discard_burn_in_samples(
     samples: dict[str, np.ndarray], burn_in: int
 ) -> dict[str, np.ndarray]:
-    """
-    This function discards a given number of samples from the beginning of each
-    chain for each variable and returns the remaining samples.
+    """Discard burn-in samples from the beginning of each chain.
 
     Parameters
     ----------
-    samples: a dictionary mapping variable names to Numpy arrays with shape
-             (parameter_dimension, chain_length, number_of_chains)
-
-    burn_in: the number of observations to discard from the beginning
+    samples : dict[str, numpy.ndarray]
+        Dictionary mapping variable names to numpy arrays with shape
+        ``(*variable_dims, chain_length, n_chains)``.
+    burn_in : int
+        Number of initial iterations to discard from each chain.
 
     Returns
     -------
-    a dictionary with the remaining samples
-
+    dict[str, numpy.ndarray]
+        Dictionary with the same keys and arrays trimmed to shape
+        ``(*variable_dims, chain_length - burn_in, n_chains)``.
     """
     return {
         variable_name: sample_chain[:, burn_in:, :]
@@ -69,21 +82,32 @@ def discard_burn_in_samples(
 def extract_final_iteration_from_samples_for_initialization(
     samples: dict[str, np.ndarray], variable_names: set[str]
 ) -> list[dict[str, numbers.Number | np.ndarray]]:
-    """
-    This function extracts the last iteration from each chain for a given set
-    of variables.
+    """Extract the last iteration from each chain for re-initialization.
+
+    This is useful for continuing sampling from the final state of a
+    previous run by passing the result as the ``init`` parameter to
+    :class:`~pyjags.Model`.
 
     Parameters
     ----------
-    samples: a dictionary mapping variable names to Numpy arrays with shape
-             (parameter_dimension, chain_length, number_of_chains)
-
-    variable_names: a set of variable names
+    samples : dict[str, numpy.ndarray]
+        Dictionary mapping variable names to numpy arrays with shape
+        ``(*variable_dims, chain_length, n_chains)``.
+    variable_names : set[str]
+        Set of variable names to extract.
 
     Returns
     -------
-    a dictionary mapping variable names to a numpy array of final samples
+    list[dict[str, numbers.Number | numpy.ndarray]]
+        A list with one dictionary per chain.  Each dictionary maps
+        variable names to their values at the final iteration (scalars
+        are squeezed).
 
+    Raises
+    ------
+    ValueError
+        If the number of chains is inconsistent across the requested
+        variables.
     """
     numbers_of_chains = [
         samples[variable_name].shape[2] for variable_name in variable_names
@@ -160,19 +184,32 @@ def _verify_and_get_variable_names_from_sequence_of_samples(
 def merge_consecutive_chains(
     sequence_of_samples: tp.Sequence[dict[str, np.ndarray]],
 ) -> dict[str, np.ndarray]:
-    """
-    This function concatenates the chains in sample dictionaries sequentially
-    (i.e. continues the chains).
-    This is useful if samples have been drawn from JAGS consecutively where each
-    new sample chain starts from the last iteration of the previous sample.
+    """Concatenate sample dictionaries along the iteration axis.
+
+    Merges consecutive sampling runs into a single dictionary by
+    appending iterations.  This is useful when samples have been drawn
+    from JAGS in successive calls where each run continues from the
+    final state of the previous one.
 
     Parameters
     ----------
-    sequence_of_samples: a sequence of sample dictionaries
+    sequence_of_samples : sequence of dict[str, numpy.ndarray]
+        Two or more sample dictionaries, each mapping variable names to
+        arrays with shape ``(*variable_dims, chain_length_i, n_chains)``.
+        All dictionaries must share the same variable names, variable
+        dimensions, and number of chains.
 
     Returns
     -------
-    a single sample dictionary merged along chain iterations
+    dict[str, numpy.ndarray]
+        Merged sample dictionary with arrays of shape
+        ``(*variable_dims, sum(chain_length_i), n_chains)``.
+
+    Raises
+    ------
+    ValueError
+        If variable dimensions or chain counts are inconsistent, or if
+        the input sequence is empty or ``None``.
     """
 
     _check_sequence_of_chains_present(sequence_of_samples)
@@ -210,19 +247,31 @@ def merge_consecutive_chains(
 def merge_parallel_chains(
     sequence_of_samples: tp.Sequence[dict[str, np.ndarray]],
 ) -> dict[str, np.ndarray]:
-    """
-    This function concatenates sample dictionaries across chains
-    (i.e. adds more chains of the same length for the same variables).
-    This is useful if the starting value of each set of samples is different
-    from the last iteration of the chains in the previous sample.
+    """Concatenate sample dictionaries along the chain axis.
+
+    Merges independently started sampling runs by adding chains.
+    This is useful when multiple models were run in parallel with
+    different initial values.
 
     Parameters
     ----------
-    sequence_of_samples: a sequence of sample dictionaries
+    sequence_of_samples : sequence of dict[str, numpy.ndarray]
+        Two or more sample dictionaries, each mapping variable names to
+        arrays with shape ``(*variable_dims, chain_length, n_chains_i)``.
+        All dictionaries must share the same variable names, variable
+        dimensions, and chain length.
 
     Returns
     -------
-    a single sample dictionary merged across chains
+    dict[str, numpy.ndarray]
+        Merged sample dictionary with arrays of shape
+        ``(*variable_dims, chain_length, sum(n_chains_i))``.
+
+    Raises
+    ------
+    ValueError
+        If variable dimensions or chain lengths are inconsistent, or if
+        the input sequence is empty or ``None``.
     """
     _check_sequence_of_chains_present(sequence_of_samples)
 

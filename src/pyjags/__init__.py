@@ -12,7 +12,13 @@
 
 from importlib.metadata import version as _metadata_version
 
-from .arviz import from_pyjags as from_pyjags, summary as summary
+from .arviz import (
+    compare as compare,
+    from_pyjags as from_pyjags,
+    loo as loo,
+    summary as summary,
+    waic as waic,
+)
 from .chain_utilities import (
     discard_burn_in_samples as discard_burn_in_samples,
     extract_final_iteration_from_samples_for_initialization as extract_final_iteration_from_samples_for_initialization,
@@ -31,6 +37,7 @@ from .io import (
     save_samples_dictionary_to_file as save_samples_dictionary_to_file,
 )
 from .model import *  # noqa: F403
+from .model import SamplingState as SamplingState, check_model as check_model
 from .modules import *  # noqa: F403
 
 __version__ = _metadata_version("pyjags")

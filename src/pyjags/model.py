@@ -10,13 +10,24 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-__all__ = ["Model"]
+"""High-level interface to JAGS for Bayesian model specification and MCMC sampling.
+
+This module provides the :class:`Model` class, the primary public API for
+compiling JAGS models, running adaptation, and drawing posterior samples.
+It also provides :class:`SamplingState` for generator-based sampling and
+:func:`check_model` for syntax validation.
+"""
+
+__all__ = ["Model", "SamplingState", "check_model"]
 
 import collections
 import contextlib
+import os
 import re
 import sys
 import tempfile
+import typing as tp
+import warnings
 
 import numpy as np
 
@@ -27,14 +38,35 @@ from .progressbar import const_time_partition, progress_bar_factory
 # Special value indicating missing data in JAGS.
 JAGS_NA = -sys.float_info.max * (1 - 1e-15)
 
+# JAGS built-in RNG factories, used for deterministic per-chain seeding.
+_JAGS_RNG_NAMES = [
+    "base::Wichmann-Hill",
+    "base::Marsaglia-Multicarry",
+    "base::Super-Duper",
+    "base::Mersenne-Twister",
+]
+
 
 def dict_to_jags(src):
-    """Convert Python dictionary with array like values to format suitable
-    for use with JAGS.
+    """Convert a Python dictionary to a format suitable for JAGS.
 
-     * Returned arrays have at least one dimension.
-     * Empty arrays are removed from the dictionary.
-     * Masked values are replaced with JAGS_NA.
+    Prepares data for consumption by the JAGS C++ engine:
+
+    * Returned arrays have at least one dimension.
+    * Empty arrays are removed from the dictionary.
+    * Masked values are replaced with ``JAGS_NA``.
+
+    Parameters
+    ----------
+    src : dict[str, array_like]
+        Dictionary mapping variable names to array-like values.
+        Values may be numpy arrays, scalars, or masked arrays.
+
+    Returns
+    -------
+    dict[str, numpy.ndarray]
+        Dictionary with the same keys (minus empty arrays) and values
+        converted to numpy arrays suitable for JAGS.
     """
     dst = {}
     for k, v in src.items():
@@ -50,10 +82,23 @@ def dict_to_jags(src):
 
 
 def dict_from_jags(src):
-    """Convert Python dictionary with array like values returned from JAGS to
-    format suitable for use with Python.
+    """Convert a dictionary returned from JAGS to Python-friendly format.
 
-     * Arrays containing JAGS_NA values are converted to numpy MaskedArray.
+    Arrays containing ``JAGS_NA`` sentinel values are converted to
+    ``numpy.ma.MaskedArray`` so that missing data is handled transparently.
+
+    Parameters
+    ----------
+    src : dict[str, numpy.ndarray]
+        Dictionary mapping variable names to numpy arrays as returned
+        by the JAGS C++ engine.
+
+    Returns
+    -------
+    dict[str, numpy.ndarray | numpy.ma.MaskedArray]
+        Dictionary with the same keys. Values that contained ``JAGS_NA``
+        are replaced by masked arrays; other values are passed through
+        unchanged.
     """
     dst = {}
     for k, v in src.items():
@@ -111,7 +156,7 @@ def model_path(file=None, code=None, encoding="utf-8"):
     new temporary file with a model code written into it.
     """
     if file:
-        yield file
+        yield str(file) if isinstance(file, os.PathLike) else file
     elif code:
         if isinstance(code, str):
             code = code.encode(encoding=encoding)
@@ -125,6 +170,20 @@ def model_path(file=None, code=None, encoding="utf-8"):
 
 
 class MultiConsole:
+    """Wrapper managing multiple JAGS Console instances for parallel chain execution.
+
+    Each Console instance handles one or more chains. ``MultiConsole``
+    distributes operations (compilation, initialization, sampling) across
+    all consoles, optionally using threads for parallel execution.
+
+    Parameters
+    ----------
+    chains : int
+        Total number of chains to run.
+    chains_per_thread : int
+        Maximum number of chains assigned to each Console instance.
+    """
+
     def __init__(self, chains, chains_per_thread):
         # Multiple consoles that emulate a single JAGS console.
         self.consoles = []
@@ -200,6 +259,116 @@ class MultiConsole:
         console, chain = self.chains[chain]
         return console.dumpState(type, chain)
 
+    def dumpSamplers(self):
+        return self.consoles[0].dumpSamplers()
+
+    def iter(self):
+        return self.consoles[0].iter()
+
+
+def _seed_to_chain_inits(seed: int, n_chains: int) -> list[dict[str, tp.Any]]:
+    """Derive per-chain RNG names and seeds from a single integer seed.
+
+    Uses ``numpy.random.SeedSequence`` to generate statistically independent
+    child seeds, and cycles through JAGS's built-in RNG factories for
+    additional structural independence.
+    """
+    ss = np.random.SeedSequence(seed)
+    child_seeds = ss.spawn(n_chains)
+    return [
+        {
+            ".RNG.name": _JAGS_RNG_NAMES[i % len(_JAGS_RNG_NAMES)],
+            ".RNG.seed": int(cs.generate_state(1)[0] % (2**31)),
+        }
+        for i, cs in enumerate(child_seeds)
+    ]
+
+
+class SamplingState:
+    """State yielded by :meth:`Model.iter_sample` at each chunk boundary.
+
+    Attributes
+    ----------
+    samples : dict[str, numpy.ndarray]
+        Accumulated samples so far, with shape
+        ``(*variable_dims, iterations, chains)``.
+    iteration : int
+        Total number of iterations sampled so far.
+    """
+
+    def __init__(
+        self,
+        samples: dict[str, np.ndarray],
+        iteration: int,
+    ):
+        self.samples = samples
+        self.iteration = iteration
+        self._ess: dict[str, float] | None = None
+        self._rhat: dict[str, float] | None = None
+
+    def _compute_diagnostics(self) -> None:
+        import arviz as az
+
+        from .arviz import from_pyjags
+
+        idata = from_pyjags(self.samples)
+        ess_ds = az.ess(idata)
+        rhat_ds = az.rhat(idata)
+        self._ess = {str(var): float(ess_ds[var]) for var in ess_ds.data_vars}
+        self._rhat = {str(var): float(rhat_ds[var]) for var in rhat_ds.data_vars}
+
+    @property
+    def ess(self) -> dict[str, float]:
+        """Per-variable effective sample size (computed lazily)."""
+        if self._ess is None:
+            self._compute_diagnostics()
+        return self._ess  # type: ignore[return-value]
+
+    @property
+    def rhat(self) -> dict[str, float]:
+        """Per-variable R-hat statistic (computed lazily)."""
+        if self._rhat is None:
+            self._compute_diagnostics()
+        return self._rhat  # type: ignore[return-value]
+
+
+def check_model(
+    code: str | bytes | None = None,
+    *,
+    file: str | os.PathLike | None = None,
+    encoding: str = "utf-8",
+) -> bool:
+    """Validate JAGS model syntax without compiling.
+
+    Parameters
+    ----------
+    code : str or bytes, optional
+        Model code to validate.
+    file : str or path-like, optional
+        Path to a model file to validate.
+    encoding : str
+        Encoding for model code strings (default ``'utf-8'``).
+
+    Returns
+    -------
+    bool
+        ``True`` if the model syntax is valid.
+
+    Raises
+    ------
+    JagsError
+        If the model contains syntax errors, with annotated source context.
+    ValueError
+        If neither *code* nor *file* is provided.
+    """
+    console = Console()
+    with model_path(file, code, encoding) as path:
+        try:
+            console.checkModel(path)
+        except JagsError as e:
+            raise _annotate_jags_error(e, code) from None
+    return True
+
 
 class Model:
     """High level representation of JAGS model.
@@ -251,6 +420,7 @@ class Model:
         refresh_seconds=None,
         threads=1,
         chains_per_thread=1,
+        seed=None,
     ):
         """
         Create a JAGS model and run adaptation steps.
@@ -260,7 +430,7 @@ class Model:
         code : str or bytes, optional
             Code of the model to load. Model may be also provided with file
             keyword argument.
-        file : str, optional
+        file : str or path-like, optional
             Path to the model to load. Model may be also provided with code
             keyword argument.
         init : dict or list of dicts, optional
@@ -300,9 +470,33 @@ class Model:
         chains_per_thread: int, 1 by default
             A positive integer specifying a maximum number of chains sampled in
             a single thread. Takes effect only when using more than one thread.
+        seed : int, optional
+            Random seed for reproducible sampling. Deterministically derives
+            per-chain RNG names and seeds using
+            ``numpy.random.SeedSequence``. Mutually exclusive with providing
+            ``.RNG.name`` or ``.RNG.seed`` in *init*.
         """
 
         check_locale_compatibility()
+
+        # Merge seed into init if provided.
+        if seed is not None:
+            if init is not None:
+                # Check that init doesn't already contain RNG configuration.
+                inits = [init] if isinstance(init, collections.abc.Mapping) else init
+                for d in inits:
+                    if any(k in d for k in (".RNG.name", ".RNG.seed", ".RNG.state")):
+                        raise ValueError(
+                            "Cannot specify both 'seed' and RNG keys "
+                            "('.RNG.name', '.RNG.seed', '.RNG.state') in 'init'."
+                        )
+            seed_inits = _seed_to_chain_inits(seed, chains)
+            if init is None:
+                init = seed_inits
+            elif isinstance(init, collections.abc.Mapping):
+                init = [{**init, **si} for si in seed_inits]
+            else:
+                init = [{**d, **si} for d, si in zip(init, seed_inits, strict=True)]
 
         # Ensure that default modules are loaded.
         load_module("basemod")
@@ -428,10 +622,257 @@ class Model:
                 raise
 
     def update(self, iterations):
-        """Updates the model for given number of iterations."""
+        """Update the model for a given number of iterations.
+
+        Runs the MCMC sampler without recording monitored values.
+        This is typically used for burn-in.
+
+        Parameters
+        ----------
+        iterations : int
+            A positive integer specifying the number of iterations to run.
+        """
         self._update(iterations, "updating: ")
 
-    def sample(self, iterations, vars=None, thin=1, monitor_type="trace"):
+    def adapt(self, iterations):
+        """Run adaptation steps to maximize sampler efficiency.
+
+        During adaptation, JAGS tunes its samplers to improve mixing.
+        If the model does not require adaptation, this method returns
+        immediately.
+
+        Parameters
+        ----------
+        iterations : int
+            A positive integer specifying the number of adaptation steps.
+
+        Returns
+        -------
+        bool
+            ``True`` if the achieved performance is close to the theoretical
+            optimum for all samplers.
+        """
+        if not self.console.isAdapting():
+            # Model does not require adaptation
+            return True
+        self._update(iterations, "adapting: ")
+        return self.console.checkAdaptation()
+
+    @property
+    def variables(self):
+        """Variable names used in the model.
+
+        Returns
+        -------
+        list[str]
+            Names of all variables defined in the JAGS model.
+        """
+        return self.console.variableNames()
+
+    @property
+    def state(self):
+        """Values of model parameters and model data for each chain.
+
+        Returns
+        -------
+        list[dict[str, numpy.ndarray | numpy.ma.MaskedArray]]
+            A list with one dictionary per chain.  Each dictionary maps
+            variable names to their current values, including both
+            parameters and data.
+
+        See Also
+        --------
+        parameters
+        data
+        """
+        return [
+            dict_from_jags(self.console.dumpState(DUMP_ALL, chain))
+            for chain in range(1, self.chains + 1)
+        ]
+
+    @property
+    def parameters(self):
+        """Values of model parameters for each chain.
+
+        Includes the name of the random number generator as
+        ``'.RNG.name'`` and its state as ``'.RNG.state'``.
+
+        Returns
+        -------
+        list[dict[str, numpy.ndarray | numpy.ma.MaskedArray]]
+            A list with one dictionary per chain.  Each dictionary maps
+            parameter names to their current values.
+        """
+        return [
+            dict_from_jags(self.console.dumpState(DUMP_PARAMETERS, chain))
+            for chain in range(1, self.chains + 1)
+        ]
+
+    @property
+    def data(self):
+        """Model data for the first chain.
+
+        Includes data provided during model construction and data
+        generated as part of the ``data`` block in the JAGS model.
+
+        Returns
+        -------
+        dict[str, numpy.ndarray | numpy.ma.MaskedArray]
+            Dictionary mapping variable names to their data values.
+        """
+        return dict_from_jags(self.console.dumpState(DUMP_DATA, 1))
+
+    @property
+    def samplers(self) -> list[list[str]]:
+        """Information about the samplers used for each node.
+
+        Returns
+        -------
+        list[list[str]]
+            A list of sampler descriptions.  Each inner list contains
+            the node name and the sampler method assigned to it.
+        """
+        return self.console.dumpSamplers()
+
+    @property
+    def is_adapted(self) -> bool:
+        """Whether adaptation has achieved optimal performance.
+
+        Returns
+        -------
+        bool
+            ``True`` if all samplers have reached their optimal
+            configuration.
+        """
+        return self.console.checkAdaptation()
+
+    @property
+    def iteration(self) -> int:
+        """Current iteration count of the model.
+
+        Returns
+        -------
+        int
+            The total number of iterations completed so far, including
+            adaptation, burn-in, and sampling iterations.
+        """
+        if self.use_threads:
+            return self.console.iter()
+        return self.console.iter()
+
+    def __repr__(self) -> str:
+        n_vars = len(self.variables)
+        return (
+            f"Model(chains={self.chains}, variables={n_vars}, "
+            f"iteration={self.iteration}, adapted={self.is_adapted})"
+        )
+
+    def iter_sample(
+        self,
+        iterations: int = 100000,
+        chunk_size: int = 1000,
+        vars: tp.Sequence[str] | None = None,
+        thin: int = 1,
+        monitor_type: str = "trace",
+    ) -> tp.Generator[SamplingState, None, None]:
+        """Yield sampling state after each chunk of iterations.
+
+        A generator that samples *chunk_size* iterations at a time, merging
+        results incrementally.  Useful for convergence monitoring, live
+        diagnostics, and checkpointing.
+
+        Parameters
+        ----------
+        iterations : int
+            Maximum total iterations to sample.
+        chunk_size : int
+            Number of iterations per chunk.
+        vars : list of str, optional
+            Variables to monitor.  Defaults to all model variables.
+        thin : int
+            Thinning interval.
+        monitor_type : str
+            Monitor type (default ``'trace'``).
+
+        Yields
+        ------
+        SamplingState
+            Accumulated samples and diagnostics after each chunk.
+
+        Examples
+        --------
+        >>> for state in model.iter_sample(iterations=50000, chunk_size=5000):
+        ...     if max(state.rhat.values()) < 1.01:
+        ...         break
+        >>> final_samples = state.samples
+        """
+        from .chain_utilities import merge_consecutive_chains
+
+        accumulated = None
+        total = 0
+
+        while total < iterations:
+            n = min(chunk_size, iterations - total)
+            new_samples = self.sample(
+                iterations=n, vars=vars, thin=thin, monitor_type=monitor_type
+            )
+            total += n
+
+            if accumulated is None:
+                accumulated = new_samples
+            else:
+                accumulated = merge_consecutive_chains((accumulated, new_samples))
+
+            yield SamplingState(samples=accumulated, iteration=total)
+
+    def sample_more(
+        self,
+        iterations: int,
+        previous_samples: dict[str, np.ndarray],
+        vars: tp.Sequence[str] | None = None,
+        thin: int = 1,
+        monitor_type: str = "trace",
+    ) -> dict[str, np.ndarray]:
+        """Continue sampling and merge with previous results.
+
+        Leverages the fact that JAGS retains chain state between
+        :meth:`sample` calls.
+
+        Parameters
+        ----------
+        iterations : int
+            Number of additional iterations to sample.
+        previous_samples : dict
+            Samples from a prior call to :meth:`sample` or
+            :meth:`sample_more`.
+        vars : list of str, optional
+            Variables to monitor.  Defaults to all model variables.
+        thin : int
+            Thinning interval.
+        monitor_type : str
+            Monitor type (default ``'trace'``).
+
+        Returns
+        -------
+        dict
+            Merged samples (previous + new) concatenated along the
+            iteration axis.
+        """
+        from .chain_utilities import merge_consecutive_chains
+
+        new_samples = self.sample(
+            iterations=iterations, vars=vars, thin=thin, monitor_type=monitor_type
+        )
+        return merge_consecutive_chains((previous_samples, new_samples))
+
+    def sample(
+        self,
+        iterations,
+        vars=None,
+        thin=1,
+        monitor_type="trace",
+        warn_convergence=False,
+    ):
         """
         Creates monitors for given variables, runs the model for provided
         number of iterations and returns monitored samples.
@@ -445,6 +886,9 @@ class Model:
             A list of variables to monitor.
         thin : int, optional
             A positive integer specifying thinning interval.
+        warn_convergence : bool, optional
+            If ``True``, print warnings after sampling if any variable has
+            R-hat > 1.01 or ESS < 100 per chain.
         Returns
         -------
         dict
@@ -466,54 +910,38 @@ class Model:
         finally:
             for name in monitored:
                 self.console.clearMonitor(name, monitor_type)
+
+        if warn_convergence and len(vars) > 0:
+            self._check_convergence(samples)
+
         return samples
 
-    def adapt(self, iterations):
-        """Run adaptation steps to maximize samplers efficiency.
+    @staticmethod
+    def _check_convergence(samples: dict[str, np.ndarray]) -> None:
+        """Print warnings for poor convergence diagnostics."""
+        try:
+            import arviz as az
 
-        Returns
-        -------
-        bool
-            True if achieved performance is close to the theoretical optimum.
-        """
-        if not self.console.isAdapting():
-            # Model does not require adaptation
-            return True
-        self._update(iterations, "adapting: ")
-        return self.console.checkAdaptation()
+            from .arviz import from_pyjags
 
-    @property
-    def variables(self):
-        """Variable names used in the model."""
-        return self.console.variableNames()
+            idata = from_pyjags(samples)
+            rhat = az.rhat(idata)
+            ess = az.ess(idata)
 
-    @property
-    def state(self):
-        """Values of model parameters and model data for each chain.
+            bad_rhat = [str(var) for var in rhat.data_vars if float(rhat[var]) > 1.01]
+            bad_ess = [str(var) for var in ess.data_vars if float(ess[var]) < 100]
 
-        See Also
-        --------
-        parameters
-        data
-        """
-        return [
-            dict_from_jags(self.console.dumpState(DUMP_ALL, chain))
-            for chain in range(1, self.chains + 1)
-        ]
-
-    @property
-    def parameters(self):
-        """Values of model parameters for each chain. Includes name of random
-        number generator as '.RNG.name' and its state as '.RNG.state'.
-        """
-        return [
-            dict_from_jags(self.console.dumpState(DUMP_PARAMETERS, chain))
-            for chain in range(1, self.chains + 1)
-        ]
-
-    @property
-    def data(self):
-        """Model data. Includes data provided during model construction and
-        data generated as part of data block.
-        """
-        return dict_from_jags(self.console.dumpState(DUMP_DATA, 1))
+            if bad_rhat:
+                warnings.warn(
+                    f"R-hat > 1.01 for variables: {', '.join(bad_rhat)}. "
+                    "Consider running more iterations.",
+                    stacklevel=3,
+                )
+            if bad_ess:
+                warnings.warn(
+                    f"ESS < 100 for variables: {', '.join(bad_ess)}. "
+                    "Consider running more iterations.",
+                    stacklevel=3,
+                )
+        except Exception:
+            pass

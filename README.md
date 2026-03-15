@@ -6,16 +6,45 @@
 [![License](https://img.shields.io/pypi/l/pyjags)](https://github.com/michaelnowotny/pyjags/blob/master/LICENSE)
 [![codecov](https://codecov.io/gh/michaelnowotny/pyjags/graph/badge.svg)](https://codecov.io/gh/michaelnowotny/pyjags)
 
-PyJAGS provides a Python interface to JAGS, a program for analysis of Bayesian
-hierarchical models using Markov Chain Monte Carlo (MCMC) simulation.
+PyJAGS provides a Python interface to [JAGS](https://mcmc-jags.sourceforge.io/)
+(Just Another Gibbs Sampler), a mature engine for Bayesian analysis via Markov
+Chain Monte Carlo (MCMC) simulation.
+
+## Why PyJAGS?
+
+**No compilation step.** JAGS interprets models at runtime. Change your model
+code and re-run immediately, with no C++ compiler toolchain required. Stan models
+can take 30-60+ seconds to compile; JAGS models are ready in milliseconds.
+
+**Handles models that gradient-based samplers cannot.** JAGS works with
+non-differentiable likelihoods, discrete parameters, mixture models, and
+change-point models that challenge HMC/NUTS. No divergence diagnostics to fight.
+
+**Incremental sampling is built in.** JAGS retains chain state between
+`sample()` calls, so extending a run is a single line of code. No other Python
+Bayesian package makes this as natural.
+
+**Familiar model syntax.** JAGS uses the BUGS language, the lingua franca of
+Bayesian modeling in the R ecosystem (WinBUGS, OpenBUGS, nimble). R users
+migrating to Python can use their existing models unchanged.
+
+**Lightweight.** PyJAGS depends on numpy, arviz, and h5py. Compare with PyMC
+(pytensor + scipy + ...), TFP (tensorflow), or NumPyro (JAX + jaxlib).
+Install with `pip install pyjags` and pre-built wheels for Linux and macOS.
+
+## Features
 
 PyJAGS adds the following features on top of JAGS:
 
 * Multicore support for parallel simulation of multiple Markov chains
 * Built-in ArviZ integration via `pyjags.from_pyjags()` for diagnostics and visualization
+* Reproducible sampling via a single `seed` parameter
+* Generator-based sampling with `iter_sample()` for live convergence monitoring
+* Standalone model syntax validation with `check_model()`
 * Incremental sampling with automatic convergence detection (ESS and R-hat criteria)
 * Saving and restoring MCMC sample chains to/from HDF5 files
 * Merging samples along iterations or across chains for resumed sampling
+* PEP 561 `py.typed` marker for IDE and type checker support
 
 License: GPLv2
 
@@ -140,6 +169,8 @@ The `notebooks/` directory contains Jupyter notebooks demonstrating PyJAGS featu
 
 | Notebook | Description |
 |----------|-------------|
+| [Getting Started](notebooks/Getting%20Started.ipynb) | Beginner-friendly introduction to Bayesian inference with PyJAGS |
+| [New in v2.3.0](notebooks/New%20in%20v2.3.0.ipynb) | Showcase of all v2.3.0 features: `iter_sample()`, `seed=`, `check_model()`, and more |
 | [Trading Cost Estimation](notebooks/Trading%20Cost%20Estimation.ipynb) | Bayesian estimation of bid-ask spreads using Hasbrouck's model (with and without a market factor) |
 | [Logistic Regression](notebooks/Logistic%20Regression.ipynb) | Bayesian logistic regression with MCMC diagnostics |
 | [Eight Schools](notebooks/Eight%20Schools.ipynb) | Classic hierarchical model with prior/posterior analysis, warmup splitting, and LOO |

@@ -10,6 +10,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+"""Deviance Information Criterion (DIC) computation and comparison."""
+
 import numbers
 
 import numpy as np
@@ -19,14 +21,22 @@ from .modules import load_module
 
 
 class DiffDIC:
-    def __init__(self, delta):
-        """
-        This class stores the difference in the DIC between two models.
+    """Difference between two DIC values for model comparison.
 
-        Parameters
-        ----------
-        delta: Numpy array with the difference in the DIC for each observations
-        """
+    Created by subtracting one :class:`DIC` instance from another.
+
+    Attributes
+    ----------
+    delta : numpy.ndarray
+        Array of DIC differences (one per penalty type).
+
+    Parameters
+    ----------
+    delta : numpy.ndarray or number
+        Array (or scalar) of DIC differences.
+    """
+
+    def __init__(self, delta):
         self._delta = delta
 
         if isinstance(self.delta, np.ndarray):
@@ -41,6 +51,13 @@ class DiffDIC:
 
     @property
     def delta(self):
+        """DIC difference values.
+
+        Returns
+        -------
+        numpy.ndarray or number
+            The DIC difference(s).
+        """
         return self._delta
 
     def __str__(self):
@@ -54,34 +71,83 @@ class DiffDIC:
 
 
 class DIC:
-    def __init__(self, deviance, penalty, type):
-        """
-        This class stores the Deviance Information Criterion (DIC) sampled from
-        a PyJAGS model.
+    """Deviance Information Criterion for a fitted JAGS model.
 
-        Parameters
-        ----------
-        deviance
-        penalty
-        type: either 'pD' or 'popt'
-        """
+    DIC combines a measure of model fit (deviance) with a complexity
+    penalty.  Lower DIC values indicate a better trade-off between fit
+    and complexity.
+
+    Attributes
+    ----------
+    deviance : numpy.ndarray
+        Mean posterior deviance.
+    penalty : numpy.ndarray
+        Complexity penalties (one per penalty type).
+    type : str
+        Name of the penalty type (``'pD'`` or ``'popt'``).
+
+    Parameters
+    ----------
+    deviance : numpy.ndarray
+        Mean posterior deviance values.
+    penalty : numpy.ndarray
+        Complexity penalty values.
+    type : str
+        Penalty type, either ``'pD'`` or ``'popt'``.
+    """
+
+    def __init__(self, deviance, penalty, type):
         self._deviance = deviance
         self._penalty = penalty
         self._type = type
 
     @property
     def deviance(self):
+        """Mean posterior deviance.
+
+        Returns
+        -------
+        numpy.ndarray
+            Deviance values.
+        """
         return self._deviance
 
     @property
     def penalty(self):
+        """Complexity penalty values.
+
+        Returns
+        -------
+        numpy.ndarray
+            Penalty values for the selected penalty type.
+        """
         return self._penalty
 
     @property
     def type(self):
+        """Penalty type name.
+
+        Returns
+        -------
+        str
+            ``'pD'`` or ``'popt'``.
+        """
         return self._type
 
     def construct_report(self, digits=2) -> str:
+        """Build a human-readable DIC summary string.
+
+        Parameters
+        ----------
+        digits : int
+            Number of decimal places in the formatted output.
+
+        Returns
+        -------
+        str
+            Multi-line string with mean deviance, penalty, and
+            penalized deviance.
+        """
         result = ""
         deviance = np.sum(self.deviance)
         psum = np.sum(self.penalty)
@@ -110,20 +176,31 @@ class DIC:
 
 
 def dic_samples(model, n_iter, thin=1, type="pD"):
-    """
-    This function draws samples from a model and computes the
-    Deviance Information Criterion (DIC).
+    """Draw samples from a model and compute the Deviance Information Criterion.
 
     Parameters
     ----------
-    model: a PyJAGS model instance
-    n_iter: the number of iterations to sample for
-    thin: a positive integer specifying thinning interval
-    type: either 'pD' or 'popt'
+    model : Model
+        A compiled PyJAGS model instance with at least 2 chains.
+    n_iter : int
+        A positive integer specifying the number of iterations to sample.
+    thin : int
+        A positive integer specifying the thinning interval.
+    type : str
+        Penalty type, either ``'pD'`` or ``'popt'``.
 
     Returns
     -------
-    the Deviance Information Criterion (DIC)
+    DIC
+        A :class:`DIC` object containing the deviance, penalty, and
+        penalty type.
+
+    Raises
+    ------
+    ValueError
+        If *model* is not a valid JAGS model, has fewer than 2 chains,
+        *n_iter* is not a positive integer, or *type* is not one of
+        ``'pD'`` or ``'popt'``.
     """
     if not isinstance(model, Model):
         raise ValueError("Invalid JAGS model")

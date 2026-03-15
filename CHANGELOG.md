@@ -5,6 +5,43 @@ All notable changes to PyJAGS will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - Unreleased
+
+### Added
+- `Model(seed=42)` parameter for reproducible sampling via
+  `numpy.random.SeedSequence`, deriving independent per-chain RNG seeds.
+- `model.iter_sample()` generator for chunked sampling with live
+  convergence monitoring, yielding `SamplingState` objects with lazy ESS
+  and R-hat diagnostics.
+- `model.sample_more()` convenience method for extending existing samples
+  by drawing additional iterations and concatenating.
+- `Model.__repr__` showing chains, variables, iteration count, and
+  adaptation status.
+- `Model.samplers`, `Model.is_adapted`, and `Model.iteration` properties
+  exposing JAGS sampler diagnostics.
+- `pyjags.check_model()` standalone function for validating JAGS model
+  syntax without compiling.
+- `pyjags.loo()`, `pyjags.waic()`, and `pyjags.compare()` convenience
+  wrappers around ArviZ functions accepting PyJAGS sample dictionaries.
+- `observed_data` and `constant_data` parameters on `from_pyjags()` for
+  attaching data to the ArviZ DataTree.
+- Metadata attributes (`inference_library`, `inference_library_version`)
+  automatically set on ArviZ DataTree objects.
+- `warn_convergence` parameter on `Model.sample()` for opt-in R-hat/ESS
+  convergence warnings after sampling.
+- `pathlib.Path` support for `Model(file=...)` and `check_model(file=...)`.
+- PEP 561 `py.typed` marker file for type checker and IDE support.
+- `console.pyi` type stub for the C++ extension module.
+- Comprehensive numpy-style docstrings on all public modules, classes,
+  methods, and properties for auto-documentation readiness.
+- "Getting Started" Jupyter notebook: beginner-friendly introduction.
+- "New in v2.3.0" Jupyter notebook: showcase of all new features.
+
+### Changed
+- `SamplingState` and `check_model` are now exported from the top-level
+  `pyjags` namespace.
+- README updated with new features and notebook table.
+
 ## [2.2.0] - 2026-03-13
 
 ### Added
@@ -71,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimum Python version raised to 3.12 (required by ArviZ 1.0).
 - Minimum ArviZ version raised to 1.0.
 
+[2.3.0]: https://github.com/michaelnowotny/pyjags/compare/2.2.0...2.3.0
 [2.2.0]: https://github.com/michaelnowotny/pyjags/compare/2.1.0...2.2.0
 [2.1.0]: https://github.com/michaelnowotny/pyjags/compare/2.0.0...2.1.0
 [2.0.0]: https://github.com/michaelnowotny/pyjags/releases/tag/2.0.0
