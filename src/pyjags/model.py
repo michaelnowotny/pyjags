@@ -10,6 +10,14 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+"""High-level interface to JAGS for Bayesian model specification and MCMC sampling.
+
+This module provides the :class:`Model` class, the primary public API for
+compiling JAGS models, running adaptation, and drawing posterior samples.
+It also provides :class:`SamplingState` for generator-based sampling and
+:func:`check_model` for syntax validation.
+"""
+
 __all__ = ["Model", "SamplingState", "check_model"]
 
 import collections
@@ -40,12 +48,25 @@ _JAGS_RNG_NAMES = [
 
 
 def dict_to_jags(src):
-    """Convert Python dictionary with array like values to format suitable
-    for use with JAGS.
+    """Convert a Python dictionary to a format suitable for JAGS.
 
-     * Returned arrays have at least one dimension.
-     * Empty arrays are removed from the dictionary.
-     * Masked values are replaced with JAGS_NA.
+    Prepares data for consumption by the JAGS C++ engine:
+
+    * Returned arrays have at least one dimension.
+    * Empty arrays are removed from the dictionary.
+    * Masked values are replaced with ``JAGS_NA``.
+
+    Parameters
+    ----------
+    src : dict[str, array_like]
+        Dictionary mapping variable names to array-like values.
+        Values may be numpy arrays, scalars, or masked arrays.
+
+    Returns
+    -------
+    dict[str, numpy.ndarray]
+        Dictionary with the same keys (minus empty arrays) and values
+        converted to numpy arrays suitable for JAGS.
     """
     dst = {}
     for k, v in src.items():
@@ -61,10 +82,23 @@ def dict_to_jags(src):
 
 
 def dict_from_jags(src):
-    """Convert Python dictionary with array like values returned from JAGS to
-    format suitable for use with Python.
+    """Convert a dictionary returned from JAGS to Python-friendly format.
 
-     * Arrays containing JAGS_NA values are converted to numpy MaskedArray.
+    Arrays containing ``JAGS_NA`` sentinel values are converted to
+    ``numpy.ma.MaskedArray`` so that missing data is handled transparently.
+
+    Parameters
+    ----------
+    src : dict[str, numpy.ndarray]
+        Dictionary mapping variable names to numpy arrays as returned
+        by the JAGS C++ engine.
+
+    Returns
+    -------
+    dict[str, numpy.ndarray | numpy.ma.MaskedArray]
+        Dictionary with the same keys. Values that contained ``JAGS_NA``
+        are replaced by masked arrays; other values are passed through
+        unchanged.
     """
     dst = {}
     for k, v in src.items():
@@ -136,6 +170,20 @@ def model_path(file=None, code=None, encoding="utf-8"):
 
 
 class MultiConsole:
+    """Wrapper managing multiple JAGS Console instances for parallel chain execution.
+
+    Each Console instance handles one or more chains. ``MultiConsole``
+    distributes operations (compilation, initialization, sampling) across
+    all consoles, optionally using threads for parallel execution.
+
+    Parameters
+    ----------
+    chains : int
+        Total number of chains to run.
+    chains_per_thread : int
+        Maximum number of chains assigned to each Console instance.
+    """
+
     def __init__(self, chains, chains_per_thread):
         # Multiple consoles that emulate a single JAGS console.
         self.consoles = []
@@ -574,16 +622,35 @@ class Model:
                 raise
 
     def update(self, iterations):
-        """Updates the model for given number of iterations."""
+        """Update the model for a given number of iterations.
+
+        Runs the MCMC sampler without recording monitored values.
+        This is typically used for burn-in.
+
+        Parameters
+        ----------
+        iterations : int
+            A positive integer specifying the number of iterations to run.
+        """
         self._update(iterations, "updating: ")
 
     def adapt(self, iterations):
-        """Run adaptation steps to maximize samplers efficiency.
+        """Run adaptation steps to maximize sampler efficiency.
+
+        During adaptation, JAGS tunes its samplers to improve mixing.
+        If the model does not require adaptation, this method returns
+        immediately.
+
+        Parameters
+        ----------
+        iterations : int
+            A positive integer specifying the number of adaptation steps.
 
         Returns
         -------
         bool
-            True if achieved performance is close to the theoretical optimum.
+            ``True`` if the achieved performance is close to the theoretical
+            optimum for all samplers.
         """
         if not self.console.isAdapting():
             # Model does not require adaptation
@@ -593,12 +660,25 @@ class Model:
 
     @property
     def variables(self):
-        """Variable names used in the model."""
+        """Variable names used in the model.
+
+        Returns
+        -------
+        list[str]
+            Names of all variables defined in the JAGS model.
+        """
         return self.console.variableNames()
 
     @property
     def state(self):
         """Values of model parameters and model data for each chain.
+
+        Returns
+        -------
+        list[dict[str, numpy.ndarray | numpy.ma.MaskedArray]]
+            A list with one dictionary per chain.  Each dictionary maps
+            variable names to their current values, including both
+            parameters and data.
 
         See Also
         --------
@@ -612,8 +692,16 @@ class Model:
 
     @property
     def parameters(self):
-        """Values of model parameters for each chain. Includes name of random
-        number generator as '.RNG.name' and its state as '.RNG.state'.
+        """Values of model parameters for each chain.
+
+        Includes the name of the random number generator as
+        ``'.RNG.name'`` and its state as ``'.RNG.state'``.
+
+        Returns
+        -------
+        list[dict[str, numpy.ndarray | numpy.ma.MaskedArray]]
+            A list with one dictionary per chain.  Each dictionary maps
+            parameter names to their current values.
         """
         return [
             dict_from_jags(self.console.dumpState(DUMP_PARAMETERS, chain))
@@ -622,24 +710,52 @@ class Model:
 
     @property
     def data(self):
-        """Model data. Includes data provided during model construction and
-        data generated as part of data block.
+        """Model data for the first chain.
+
+        Includes data provided during model construction and data
+        generated as part of the ``data`` block in the JAGS model.
+
+        Returns
+        -------
+        dict[str, numpy.ndarray | numpy.ma.MaskedArray]
+            Dictionary mapping variable names to their data values.
         """
         return dict_from_jags(self.console.dumpState(DUMP_DATA, 1))
 
     @property
     def samplers(self) -> list[list[str]]:
-        """Information about the samplers used for each node."""
+        """Information about the samplers used for each node.
+
+        Returns
+        -------
+        list[list[str]]
+            A list of sampler descriptions.  Each inner list contains
+            the node name and the sampler method assigned to it.
+        """
         return self.console.dumpSamplers()
 
     @property
     def is_adapted(self) -> bool:
-        """Whether adaptation has achieved optimal performance."""
+        """Whether adaptation has achieved optimal performance.
+
+        Returns
+        -------
+        bool
+            ``True`` if all samplers have reached their optimal
+            configuration.
+        """
         return self.console.checkAdaptation()
 
     @property
     def iteration(self) -> int:
-        """Current iteration count of the model."""
+        """Current iteration count of the model.
+
+        Returns
+        -------
+        int
+            The total number of iterations completed so far, including
+            adaptation, burn-in, and sampling iterations.
+        """
         if self.use_threads:
             return self.console.iter()
         return self.console.iter()

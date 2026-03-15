@@ -9,6 +9,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+"""Discovery and loading of JAGS extension modules."""
+
 __all__ = [
     "get_modules_dir",
     "list_modules",
@@ -124,7 +126,21 @@ def locate_modules_dir():
 
 
 def get_modules_dir():
-    """Return modules directory."""
+    """Return the JAGS modules directory.
+
+    Auto-detects the directory by inspecting loaded shared objects if
+    it has not been set explicitly via :func:`set_modules_dir`.
+
+    Returns
+    -------
+    str
+        Absolute path to the JAGS modules directory.
+
+    Raises
+    ------
+    RuntimeError
+        If the modules directory cannot be located automatically.
+    """
     global modules_dir
     if modules_dir is None:
         modules_dir = locate_modules_dir()
@@ -136,25 +152,47 @@ def get_modules_dir():
 
 
 def set_modules_dir(directory):
-    """Set modules directory."""
+    """Set the JAGS modules directory.
+
+    Parameters
+    ----------
+    directory : str
+        Absolute path to the directory containing JAGS module shared
+        libraries.
+    """
     global modules_dir
     modules_dir = directory
 
 
 def list_modules():
-    """Return a list of loaded modules."""
+    """Return a list of currently loaded JAGS modules.
+
+    Returns
+    -------
+    list[str]
+        Names of all JAGS modules that have been loaded.
+    """
     return Console.listModules()
 
 
 def load_module(name, modules_dir=None):
-    """Load a module.
+    """Load a JAGS module by name.
+
+    If the module has not been loaded before, locates and loads the
+    shared library from disk, then registers it with JAGS.
 
     Parameters
     ----------
     name : str
-        A name of module to load.
+        Name of the module to load (e.g., ``'basemod'``, ``'bugs'``,
+        ``'dic'``).
     modules_dir : str, optional
-        Directory where modules are located.
+        Directory where module shared libraries are located.  If not
+        provided, uses the path from :func:`get_modules_dir`.
+
+    Returns
+    -------
+    None
     """
     if name not in loaded_modules:
         dir = modules_dir or get_modules_dir()
@@ -170,5 +208,11 @@ loaded_modules = {}
 
 
 def unload_module(name):
-    """Unload a module."""
+    """Unload a JAGS module by name.
+
+    Parameters
+    ----------
+    name : str
+        Name of the module to unload.
+    """
     return Console.unloadModule(name)

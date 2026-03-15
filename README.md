@@ -13,9 +13,13 @@ PyJAGS adds the following features on top of JAGS:
 
 * Multicore support for parallel simulation of multiple Markov chains
 * Built-in ArviZ integration via `pyjags.from_pyjags()` for diagnostics and visualization
+* Reproducible sampling via a single `seed` parameter
+* Generator-based sampling with `iter_sample()` for live convergence monitoring
+* Standalone model syntax validation with `check_model()`
 * Incremental sampling with automatic convergence detection (ESS and R-hat criteria)
 * Saving and restoring MCMC sample chains to/from HDF5 files
 * Merging samples along iterations or across chains for resumed sampling
+* PEP 561 `py.typed` marker for IDE and type checker support
 
 License: GPLv2
 
@@ -140,6 +144,8 @@ The `notebooks/` directory contains Jupyter notebooks demonstrating PyJAGS featu
 
 | Notebook | Description |
 |----------|-------------|
+| [Getting Started](notebooks/Getting%20Started.ipynb) | Beginner-friendly introduction to Bayesian inference with PyJAGS |
+| [New in v2.3.0](notebooks/New%20in%20v2.3.0.ipynb) | Showcase of all v2.3.0 features: `iter_sample()`, `seed=`, `check_model()`, and more |
 | [Trading Cost Estimation](notebooks/Trading%20Cost%20Estimation.ipynb) | Bayesian estimation of bid-ask spreads using Hasbrouck's model (with and without a market factor) |
 | [Logistic Regression](notebooks/Logistic%20Regression.ipynb) | Bayesian logistic regression with MCMC diagnostics |
 | [Eight Schools](notebooks/Eight%20Schools.ipynb) | Classic hierarchical model with prior/posterior analysis, warmup splitting, and LOO |
