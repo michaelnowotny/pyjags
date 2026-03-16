@@ -39,7 +39,8 @@ jobs:
         run: |
           conda install -y jags cmake pkg-config pybind11 numpy \
                            scikit-build-core setuptools-scm \
-                           "arviz>=1.0" h5py pytest hypothesis pytest-cov
+                           h5py pytest hypothesis pytest-cov
+          pip install "arviz>=1.0"
 
       - name: Build and install pyjags from source
         run: pip install -e . --no-deps --no-build-isolation -v
@@ -71,7 +72,8 @@ jobs:
         run: |
           conda install -y jags cmake pkg-config pybind11 numpy \
                            scikit-build-core setuptools-scm \
-                           "arviz>=1.0" h5py pytest hypothesis pytest-cov
+                           h5py pytest hypothesis pytest-cov
+          pip install "arviz>=1.0"
 
       - name: Build and install pyjags from source
         run: pip install -e . --no-deps --no-build-isolation -v
