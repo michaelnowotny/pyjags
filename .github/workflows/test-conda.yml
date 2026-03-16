@@ -1,0 +1,83 @@
+# Copyright (C) 2026 Michael Nowotny
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+name: Test (conda)
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-conda-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools-scm needs full history
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: pyjags-test
+          python-version: "3.12"
+          channels: conda-forge
+
+      - name: Install JAGS and build dependencies from conda-forge
+        run: |
+          conda install -y jags cmake pkg-config pybind11 numpy \
+                           scikit-build-core setuptools-scm \
+                           arviz h5py pytest hypothesis pytest-cov
+
+      - name: Build and install pyjags from source
+        run: pip install -e . --no-deps --no-build-isolation -v
+
+      - name: Run tests
+        run: python -m pytest test/ -v --tb=short
+
+      - name: Verify conda JAGS is used
+        run: python -c "import pyjags; print(pyjags.version_info())"
+
+  test-conda-macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: pyjags-test
+          python-version: "3.12"
+          channels: conda-forge
+
+      - name: Install JAGS and build dependencies from conda-forge
+        run: |
+          conda install -y jags cmake pkg-config pybind11 numpy \
+                           scikit-build-core setuptools-scm \
+                           arviz h5py pytest hypothesis pytest-cov
+
+      - name: Build and install pyjags from source
+        run: pip install -e . --no-deps --no-build-isolation -v
+
+      - name: Run tests
+        run: python -m pytest test/ -v --tb=short
+
+      - name: Verify conda JAGS is used
+        run: python -c "import pyjags; print(pyjags.version_info())"
