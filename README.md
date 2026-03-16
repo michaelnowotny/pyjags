@@ -17,24 +17,24 @@ Chain Monte Carlo (MCMC) simulation.
 ## Why PyJAGS?
 
 **No compilation step.** JAGS interprets models at runtime. Change your model
-code and re-run immediately, with no C++ compiler toolchain required. Stan models
-can take 30-60+ seconds to compile; JAGS models are ready in milliseconds.
+code and re-run immediately, with no C++ compiler toolchain required. Even
+state-of-the-art HMC packages can take 30-60+ seconds to compile each model;
+JAGS models are ready in milliseconds.
 
 **Handles models that gradient-based samplers cannot.** JAGS works with
 non-differentiable likelihoods, discrete parameters, mixture models, and
 change-point models that challenge HMC/NUTS. No divergence diagnostics to fight.
 
 **Incremental sampling is built in.** JAGS retains chain state between
-`sample()` calls, so extending a run is a single line of code. No other Python
-Bayesian package makes this as natural.
+`sample()` calls, so extending a run is a single line of code -- a capability
+that is unique among Python Bayesian packages.
 
 **Familiar model syntax.** JAGS uses the BUGS language, the lingua franca of
 Bayesian modeling in the R ecosystem (WinBUGS, OpenBUGS, nimble). R users
 migrating to Python can use their existing models unchanged.
 
-**Lightweight.** PyJAGS depends on numpy, arviz, and h5py. Compare with PyMC
-(pytensor + scipy + ...), TFP (tensorflow), or NumPyro (JAX + jaxlib).
-Install with `pip install pyjags` and pre-built wheels for Linux and macOS.
+**Lightweight.** PyJAGS depends only on numpy, arviz, and h5py. Install with
+`pip install pyjags` and pre-built wheels for Linux and macOS.
 
 ## Features
 
