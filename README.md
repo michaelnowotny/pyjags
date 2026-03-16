@@ -1,10 +1,14 @@
-# PyJAGS: The Python Interface to JAGS
+<p align="center">
+  <img src="logo.jpg" alt="PyJAGS" width="400">
+</p>
 
-[![CI](https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml/badge.svg)](https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml)
-[![PyPI](https://img.shields.io/pypi/v/pyjags)](https://pypi.org/project/pyjags/)
-[![Python](https://img.shields.io/pypi/pyversions/pyjags)](https://pypi.org/project/pyjags/)
-[![License](https://img.shields.io/pypi/l/pyjags)](https://github.com/michaelnowotny/pyjags/blob/master/LICENSE)
-[![codecov](https://codecov.io/gh/michaelnowotny/pyjags/graph/badge.svg)](https://codecov.io/gh/michaelnowotny/pyjags)
+<p align="center">
+  <a href="https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml"><img src="https://github.com/michaelnowotny/pyjags/actions/workflows/test.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/pyjags/"><img src="https://img.shields.io/pypi/v/pyjags" alt="PyPI"></a>
+  <a href="https://pypi.org/project/pyjags/"><img src="https://img.shields.io/pypi/pyversions/pyjags" alt="Python"></a>
+  <a href="https://github.com/michaelnowotny/pyjags/blob/master/LICENSE"><img src="https://img.shields.io/pypi/l/pyjags" alt="License"></a>
+  <a href="https://codecov.io/gh/michaelnowotny/pyjags"><img src="https://codecov.io/gh/michaelnowotny/pyjags/graph/badge.svg" alt="codecov"></a>
+</p>
 
 PyJAGS provides a Python interface to [JAGS](https://mcmc-jags.sourceforge.io/)
 (Just Another Gibbs Sampler), a mature engine for Bayesian analysis via Markov
