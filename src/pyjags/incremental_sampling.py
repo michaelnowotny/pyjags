@@ -42,6 +42,15 @@ class EffectiveSampleSizeCriterion:
     """
 
     def __init__(self, minimum_ess: int, variable_names: list[str] | None = None):
+        """Initialize the ESS convergence criterion.
+
+        Parameters
+        ----------
+        minimum_ess : int
+            Minimum effective sample size required for convergence.
+        variable_names : list[str], optional
+            Variables to monitor. If ``None``, all variables are checked.
+        """
         self._minimum_ess = minimum_ess
         self._variable_names = variable_names
 
@@ -115,6 +124,15 @@ class RHatDeviationCriterion:
         maximum_rhat_deviation: float,
         variable_names: list[str] | None = None,
     ):
+        """Initialize the R-hat convergence criterion.
+
+        Parameters
+        ----------
+        maximum_rhat_deviation : float
+            Maximum allowed deviation of R-hat from 1.0.
+        variable_names : list[str], optional
+            Variables to monitor. If ``None``, all variables are checked.
+        """
         self._maximum_rhat_deviation = maximum_rhat_deviation
         self._variable_names = variable_names
 
@@ -193,6 +211,17 @@ class EffectiveSampleSizeAndRHatCriterion:
         maximum_rhat_deviation: float,
         variable_names: list[str] | None = None,
     ):
+        """Initialize the combined ESS and R-hat convergence criterion.
+
+        Parameters
+        ----------
+        minimum_ess : int
+            Minimum effective sample size required.
+        maximum_rhat_deviation : float
+            Maximum allowed deviation of R-hat from 1.0.
+        variable_names : list[str], optional
+            Variables to monitor. If ``None``, all variables are checked.
+        """
         self._minimum_ess = minimum_ess
         self._maximum_rhat_deviation = maximum_rhat_deviation
         self._variable_names = variable_names

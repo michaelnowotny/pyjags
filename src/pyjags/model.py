@@ -111,7 +111,18 @@ def dict_from_jags(src):
 
 
 def check_locale_compatibility():
-    """Checks that current locale is compatible with JAGS."""
+    """Verify that the current locale uses a period as the decimal separator.
+
+    JAGS requires a locale where the decimal point character is ``'.'``.
+    If the active locale uses a different character (e.g. ``','`` in some
+    European locales), this function raises ``ValueError`` with instructions
+    on how to set a compatible locale.
+
+    Raises
+    ------
+    ValueError
+        If the current locale's decimal point is not ``'.'``.
+    """
     import locale
     import textwrap
 
@@ -152,8 +163,30 @@ def _annotate_jags_error(error, code):
 
 @contextlib.contextmanager
 def model_path(file=None, code=None, encoding="utf-8"):
-    """Utility function returning model path, if necessary creates a
-    new temporary file with a model code written into it.
+    """Context manager that yields a filesystem path to a JAGS model file.
+
+    If *file* is given, its path is yielded directly. If *code* is given,
+    the code is written to a temporary file and the temporary path is
+    yielded. The temporary file is deleted on context exit.
+
+    Parameters
+    ----------
+    file : str or path-like, optional
+        Path to an existing model file on disk.
+    code : str or bytes, optional
+        Model code to write to a temporary file.
+    encoding : str, optional
+        Encoding used when *code* is a ``str``. Default is ``'utf-8'``.
+
+    Yields
+    ------
+    str
+        Filesystem path to the model file.
+
+    Raises
+    ------
+    ValueError
+        If neither *file* nor *code* is provided.
     """
     if file:
         yield str(file) if isinstance(file, os.PathLike) else file
@@ -185,6 +218,17 @@ class MultiConsole:
     """
 
     def __init__(self, chains, chains_per_thread):
+        """Initialize a MultiConsole distributing chains across Console instances.
+
+        Parameters
+        ----------
+        chains : int
+            Total number of MCMC chains to run.
+        chains_per_thread : int
+            Maximum number of chains assigned to a single Console
+            instance. Additional Console instances are created as needed
+            to cover all chains.
+        """
         # Multiple consoles that emulate a single JAGS console.
         self.consoles = []
         self.chains_per_console = []
@@ -207,35 +251,125 @@ class MultiConsole:
             chains -= chains_per_thread
 
     def checkModel(self, path):
+        """Check model syntax on all Console instances.
+
+        Parameters
+        ----------
+        path : str
+            Filesystem path to the JAGS model file.
+        """
         for c in self.consoles:
             c.checkModel(path)
 
     def compile(self, data, chains, generate_data):
+        """Compile the model on all Console instances.
+
+        Parameters
+        ----------
+        data : dict[str, numpy.ndarray]
+            Observed data to pass to JAGS, already converted via
+            :func:`dict_to_jags`.
+        chains : int
+            Total number of chains. Must equal the number of chains this
+            MultiConsole was initialised with.
+        generate_data : bool
+            If ``True``, execute the ``data`` block in the model to
+            generate additional data.
+        """
         assert chains == len(self.chains)
         for console, chains in zip(self.consoles, self.chains_per_console, strict=True):
             console.compile(data, chains, generate_data)
 
     def setRNGname(self, name, chain):
+        """Set the random number generator name for a specific chain.
+
+        Parameters
+        ----------
+        name : str
+            Name of the JAGS RNG factory (e.g.
+            ``'base::Mersenne-Twister'``).
+        chain : int
+            Chain number (1-indexed).
+        """
         console, chain = self.chains[chain]
         console.setRNGname(name, chain)
 
     def setParameters(self, data, chain):
+        """Set initial parameter values for a specific chain.
+
+        Parameters
+        ----------
+        data : dict[str, numpy.ndarray]
+            Dictionary mapping parameter names to their initial values.
+        chain : int
+            Chain number (1-indexed).
+        """
         console, chain = self.chains[chain]
         console.setParameters(data, chain)
 
     def setMonitor(self, name, thin, type):
+        """Add a monitor for a single variable on all Console instances.
+
+        Parameters
+        ----------
+        name : str
+            Variable name to monitor.
+        thin : int
+            Thinning interval for the monitor.
+        type : str
+            Monitor type (e.g. ``'trace'``, ``'mean'``, ``'variance'``).
+        """
         for c in self.consoles:
             c.setMonitor(name, thin, type)
 
     def setMonitors(self, names, thin, type):
+        """Add monitors for multiple variables on all Console instances.
+
+        Parameters
+        ----------
+        names : list[str]
+            Variable names to monitor.
+        thin : int
+            Thinning interval for each monitor.
+        type : str
+            Monitor type (e.g. ``'trace'``, ``'mean'``, ``'variance'``).
+        """
         for name in names:
             self.setMonitor(name, thin, type)
 
     def clearMonitor(self, name, type):
+        """Remove a monitor for a variable from all Console instances.
+
+        Parameters
+        ----------
+        name : str
+            Variable name whose monitor should be removed.
+        type : str
+            Monitor type to clear (e.g. ``'trace'``).
+        """
         for c in self.consoles:
             c.clearMonitor(name, type)
 
     def dumpMonitors(self, type, flat):
+        """Retrieve monitored samples from all Console instances.
+
+        Samples from each Console are concatenated along the last axis
+        (the chain dimension) so that the result has all chains combined.
+
+        Parameters
+        ----------
+        type : str
+            Monitor type to dump (e.g. ``'trace'``).
+        flat : bool
+            If ``True``, return flat (1-D) arrays; if ``False``, return
+            arrays with their natural variable dimensions.
+
+        Returns
+        -------
+        dict[str, numpy.ndarray]
+            Dictionary mapping variable names to sample arrays with shape
+            ``(*variable_dims, iterations, chains)``.
+        """
         ds = [c.dumpMonitors(type, flat) for c in self.consoles]
         return {
             k: np.concatenate([d[k] for d in ds], axis=-1)
@@ -243,26 +377,68 @@ class MultiConsole:
         }
 
     def initialize(self):
+        """Initialize all Console instances after compilation."""
         for c in self.consoles:
             c.initialize()
 
     def isAdapting(self):
+        """Return ``True`` if any Console is still in adaptation mode."""
         return any(c.isAdapting() for c in self.consoles)
 
     def checkAdaptation(self):
+        """Return ``True`` if any Console reports successful adaptation."""
         return any(c.checkAdaptation() for c in self.consoles)
 
     def variableNames(self):
+        """Return variable names defined in the model.
+
+        Returns
+        -------
+        list[str]
+            Variable names from the first Console instance (all
+            consoles share the same model specification).
+        """
         return self.consoles[0].variableNames()
 
     def dumpState(self, type, chain):
+        """Dump the current state of a specific chain.
+
+        Parameters
+        ----------
+        type : int
+            State type flag (e.g. ``DUMP_ALL``, ``DUMP_PARAMETERS``,
+            ``DUMP_DATA``).
+        chain : int
+            Chain number (1-indexed).
+
+        Returns
+        -------
+        dict[str, numpy.ndarray]
+            Dictionary mapping variable names to their current values
+            in the specified chain.
+        """
         console, chain = self.chains[chain]
         return console.dumpState(type, chain)
 
     def dumpSamplers(self):
+        """Return sampler information from the first Console instance.
+
+        Returns
+        -------
+        list[list[str]]
+            A list of sampler descriptions, where each inner list
+            contains the node name and its assigned sampler method.
+        """
         return self.consoles[0].dumpSamplers()
 
     def iter(self):
+        """Return the current iteration count from the first Console.
+
+        Returns
+        -------
+        int
+            Number of iterations completed so far.
+        """
         return self.consoles[0].iter()
 
 
@@ -301,12 +477,29 @@ class SamplingState:
         samples: dict[str, np.ndarray],
         iteration: int,
     ):
+        """Create a new SamplingState.
+
+        Parameters
+        ----------
+        samples : dict[str, numpy.ndarray]
+            Accumulated MCMC samples so far. Keys are variable names and
+            values are arrays with shape
+            ``(*variable_dims, iterations, chains)``.
+        iteration : int
+            Total number of iterations sampled so far (before thinning).
+        """
         self.samples = samples
         self.iteration = iteration
         self._ess: dict[str, float] | None = None
         self._rhat: dict[str, float] | None = None
 
     def _compute_diagnostics(self) -> None:
+        """Compute effective sample size and R-hat for all variables.
+
+        Converts the accumulated samples to an ``arviz.InferenceData``
+        object and computes per-variable ESS and R-hat diagnostics.
+        Results are cached in ``_ess`` and ``_rhat``.
+        """
         import arviz as az
 
         from .arviz import from_pyjags
@@ -529,6 +722,7 @@ class Model:
             self.adapt(adapt)
 
     def _init_compile(self, data, generate_data):
+        """Compile the model with observed data."""
         if data is None:
             data = {}
         data = dict_to_jags(data)
@@ -577,17 +771,20 @@ class Model:
             self.console.setParameters(data, chain)
 
     def _update(self, iterations, header):
+        """Run MCMC updates with progress bar, dispatching to sequential or parallel."""
         method = self._update_parallel if self.use_threads else self._update_sequential
 
         with self.progress_bar(self.chains * iterations, header=header) as pb:
             method(pb, iterations)
 
     def _update_sequential(self, progress, iterations):
+        """Run MCMC updates sequentially on a single console."""
         for steps in const_time_partition(iterations, self.refresh_seconds):
             self.console.update(steps)
             progress.update(self.chains * steps)
 
     def _update_parallel(self, progress, iterations):
+        """Run MCMC updates in parallel across consoles using threads."""
         from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor, wait
         from threading import Event
 
@@ -597,6 +794,7 @@ class Model:
             interrupt = Event()
 
             def update(console, chains):
+                """Run MCMC updates on a single console in a worker thread."""
                 for steps in const_time_partition(iterations, self.refresh_seconds):
                     if interrupt.is_set():
                         break
@@ -761,6 +959,7 @@ class Model:
         return self.console.iter()
 
     def __repr__(self) -> str:
+        """Return a concise string representation of the Model."""
         n_vars = len(self.variables)
         return (
             f"Model(chains={self.chains}, variables={n_vars}, "
@@ -918,7 +1117,23 @@ class Model:
 
     @staticmethod
     def _check_convergence(samples: dict[str, np.ndarray]) -> None:
-        """Print warnings for poor convergence diagnostics."""
+        """Emit warnings if MCMC convergence diagnostics are poor.
+
+        Converts *samples* to an ``arviz.InferenceData`` object and
+        computes R-hat and effective sample size (ESS) for each variable.
+        Warnings are issued for variables with R-hat > 1.01 or ESS < 100.
+
+        Parameters
+        ----------
+        samples : dict[str, numpy.ndarray]
+            Dictionary mapping variable names to sample arrays with shape
+            ``(*variable_dims, iterations, chains)``.
+
+        Notes
+        -----
+        If ``arviz`` is not installed or any error occurs during
+        computation, the method silently returns without issuing warnings.
+        """
         try:
             import arviz as az
 

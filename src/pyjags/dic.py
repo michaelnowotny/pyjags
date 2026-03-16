@@ -37,6 +37,18 @@ class DiffDIC:
     """
 
     def __init__(self, delta):
+        """Initialize a DiffDIC instance.
+
+        Parameters
+        ----------
+        delta : numpy.ndarray or number
+            Array (or scalar) of DIC differences between two models.
+
+        Raises
+        ------
+        TypeError
+            If *delta* is neither a numpy array nor a number.
+        """
         self._delta = delta
 
         if isinstance(self.delta, np.ndarray):
@@ -61,12 +73,13 @@ class DiffDIC:
         return self._delta
 
     def __str__(self):
-
+        """Return a human-readable summary of the DIC difference."""
         result = f"Difference: {np.sum(self.delta)}\n"
         result += f"Sample standard error: {np.sqrt(self._n) * np.std(self.delta)}"
         return result
 
     def __repr__(self):
+        """Return the string representation of the DIC difference."""
         return self.__str__()
 
 
@@ -97,6 +110,17 @@ class DIC:
     """
 
     def __init__(self, deviance, penalty, type):
+        """Initialize a DIC instance.
+
+        Parameters
+        ----------
+        deviance : numpy.ndarray
+            Mean posterior deviance values.
+        penalty : numpy.ndarray
+            Complexity penalty values.
+        type : str
+            Penalty type, either ``'pD'`` or ``'popt'``.
+        """
         self._deviance = deviance
         self._penalty = penalty
         self._type = type
@@ -158,6 +182,25 @@ class DIC:
         return result
 
     def __sub__(self, other):
+        """Subtract another DIC to compute the difference for model comparison.
+
+        Parameters
+        ----------
+        other : DIC
+            The DIC of the model to compare against.
+
+        Returns
+        -------
+        DiffDIC
+            The element-wise difference in penalized deviance.
+
+        Raises
+        ------
+        TypeError
+            If *other* is not a :class:`DIC` instance.
+        ValueError
+            If the two DIC objects use different penalty types.
+        """
         if not isinstance(other, DIC):
             raise TypeError("The second object must be of type DIC.")
 
@@ -169,9 +212,11 @@ class DIC:
         return DiffDIC(delta)
 
     def __str__(self):
+        """Return a human-readable DIC summary report."""
         return self.construct_report()
 
     def __repr__(self):
+        """Return the string representation of the DIC object."""
         return self.__str__()
 
 

@@ -50,7 +50,10 @@ class Console:
     more chains. Most users should use :class:`pyjags.Model` instead.
     """
 
-    def __init__(self) -> None: ...
+    def __init__(self) -> None:
+        """Create a new JAGS Console instance."""
+        ...
+
     def checkModel(self, path: str) -> None:
         """Load a model from *path* and check its syntactic correctness.
 

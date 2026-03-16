@@ -71,6 +71,8 @@ elif sys.platform.startswith("linux"):
         """Return paths of all currently loaded shared objects."""
 
         class dl_phdr_info(ctypes.Structure):
+            """C structure for dl_iterate_phdr callback info."""
+
             _fields_ = [
                 ("addr", ctypes.c_void_p),
                 ("name", ctypes.c_char_p),
@@ -94,6 +96,7 @@ elif sys.platform.startswith("linux"):
         libraries = []
 
         def callback(info, size, data):
+            """Collect shared object paths from dl_iterate_phdr."""
             path = info.contents.name
             if path:
                 libraries.append(path)
@@ -111,6 +114,16 @@ else:
 
 
 def locate_modules_dir_using_shared_objects():
+    """Infer the JAGS modules directory from loaded shared libraries.
+
+    Inspects all shared objects in the current process, finds the JAGS
+    library, and derives the modules path from its location.
+
+    Returns
+    -------
+    str or None
+        Path to the modules directory, or ``None`` if JAGS is not found.
+    """
     for path in list_shared_objects():
         name = os.path.basename(path)
         if name.startswith("jags") or name.startswith("libjags"):
@@ -121,6 +134,16 @@ def locate_modules_dir_using_shared_objects():
 
 
 def locate_modules_dir():
+    """Locate the JAGS modules directory using all available strategies.
+
+    Tries shared-object inspection first, then conda prefix, then common
+    system paths.
+
+    Returns
+    -------
+    str or None
+        Path to the modules directory, or ``None`` if not found.
+    """
     logger.debug("Locating JAGS module directory.")
 
     # Try shared object inspection first (works for system installs)
