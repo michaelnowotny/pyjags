@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.jpg" alt="PyJAGS" width="400">
+  <img src="https://raw.githubusercontent.com/michaelnowotny/pyjags/master/logo.jpg" alt="PyJAGS" width="400">
 </p>
 
 <p align="center">
