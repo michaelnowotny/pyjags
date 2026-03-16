@@ -122,7 +122,30 @@ def locate_modules_dir_using_shared_objects():
 
 def locate_modules_dir():
     logger.debug("Locating JAGS module directory.")
-    return locate_modules_dir_using_shared_objects()
+
+    # Try shared object inspection first (works for system installs)
+    result = locate_modules_dir_using_shared_objects()
+    if result and os.path.isdir(result):
+        return result
+
+    # Fallback: check conda prefix
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        major = version()[0]
+        conda_modules = os.path.join(conda_prefix, "lib", "JAGS", f"modules-{major}")
+        if os.path.isdir(conda_modules):
+            logger.info("Using JAGS modules from conda: %s", conda_modules)
+            return conda_modules
+
+    # Fallback: check common system paths
+    major = version()[0]
+    for lib_dir in ["/usr/lib", "/usr/local/lib", "/opt/homebrew/lib"]:
+        candidate = os.path.join(lib_dir, "JAGS", f"modules-{major}")
+        if os.path.isdir(candidate):
+            logger.info("Using JAGS modules from %s", candidate)
+            return candidate
+
+    return result
 
 
 def get_modules_dir():
