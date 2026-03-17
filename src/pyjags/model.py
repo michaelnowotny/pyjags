@@ -228,6 +228,8 @@ class SamplingState:
         self.iteration = iteration
         self._ess: dict[str, float] | None = None
         self._rhat: dict[str, float] | None = None
+        self._chain_div: dict[str, np.ndarray] | None = None
+        self._chain_div_computed: bool = False
 
     def _compute_diagnostics(self) -> None:
         """Compute effective sample size and R-hat for all variables.
@@ -259,6 +261,34 @@ class SamplingState:
         if self._rhat is None:
             self._compute_diagnostics()
         return self._rhat  # type: ignore[return-value]
+
+    @property
+    def chain_divergence(self) -> dict[str, np.ndarray] | None:
+        """Pairwise chain divergence matrix via energy distance.
+
+        Requires the ``divergence`` package.  Returns ``None`` if it is
+        not installed.  Computed lazily on first access.
+
+        Returns
+        -------
+        dict[str, numpy.ndarray] or None
+            Mapping of variable names to ``(n_chains, n_chains)``
+            pairwise energy distance matrices, or ``None`` if
+            ``divergence`` is not available.
+        """
+        if not self._chain_div_computed:
+            self._chain_div_computed = True
+            try:
+                from .diagnostics import _import_divergence
+
+                div = _import_divergence()
+                from .arviz import from_pyjags
+
+                idata = from_pyjags(self.samples)
+                self._chain_div = div.chain_divergence(idata)
+            except ImportError:
+                self._chain_div = None
+        return self._chain_div
 
 
 def check_model(

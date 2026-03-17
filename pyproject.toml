@@ -52,6 +52,9 @@ dev = [
     "pytest-cov",
     "ruff",
 ]
+diagnostics = [
+    "divergence[bayesian]>=1.3",
+]
 
 [project.urls]
 Homepage = "https://github.com/michaelnowotny/pyjags"
