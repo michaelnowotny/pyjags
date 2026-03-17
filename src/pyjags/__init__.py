@@ -36,9 +36,19 @@ from .io import (
     load_samples_dictionary_from_file as load_samples_dictionary_from_file,
     save_samples_dictionary_to_file as save_samples_dictionary_to_file,
 )
-from .model import *  # noqa: F403
-from .model import SamplingState as SamplingState, check_model as check_model
-from .modules import *  # noqa: F403
+from .model import (
+    Model as Model,
+    SamplingState as SamplingState,
+    check_model as check_model,
+)
+from .modules import (
+    get_modules_dir as get_modules_dir,
+    list_modules as list_modules,
+    load_module as load_module,
+    set_modules_dir as set_modules_dir,
+    unload_module as unload_module,
+    version as version,
+)
 
 __version__ = _metadata_version("pyjags")
 
