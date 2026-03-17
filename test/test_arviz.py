@@ -252,6 +252,57 @@ class TestFromPyjags:
 
 
 # ---------------------------------------------------------------------------
+# loo, waic, compare convenience wrappers
+# ---------------------------------------------------------------------------
+
+
+class TestLooWaicCompare:
+    """Tests for the loo(), waic(), and compare() convenience wrappers."""
+
+    @pytest.fixture()
+    def samples_with_ll(self):
+        """Sample dictionary with a log-likelihood variable."""
+        np.random.seed(42)
+        iterations, chains, n_obs = 200, 4, 20
+        return {
+            "mu": np.random.randn(1, iterations, chains),
+            "loglik": np.random.randn(n_obs, iterations, chains),
+        }
+
+    def test_loo_returns_elpd_data(self, samples_with_ll):
+        from pyjags.arviz import loo
+
+        result = loo(samples_with_ll, log_likelihood="loglik")
+        assert hasattr(result, "elpd")
+        assert hasattr(result, "p")
+        assert result.kind == "loo"
+
+    def test_compare_returns_dataframe(self, samples_with_ll):
+        import pandas as pd
+
+        from pyjags.arviz import compare
+
+        np.random.seed(123)
+        iterations, chains, n_obs = 200, 4, 20
+        samples_b = {
+            "mu": np.random.randn(1, iterations, chains),
+            "loglik": np.random.randn(n_obs, iterations, chains),
+        }
+        result = compare(
+            {"model_a": samples_with_ll, "model_b": samples_b},
+            log_likelihood="loglik",
+        )
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+
+    def test_loo_accessible_from_pyjags(self):
+        import pyjags
+
+        assert callable(pyjags.loo)
+        assert callable(pyjags.compare)
+
+
+# ---------------------------------------------------------------------------
 # _split_warmup
 # ---------------------------------------------------------------------------
 
