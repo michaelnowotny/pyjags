@@ -181,6 +181,62 @@ def _verify_and_get_variable_names_from_sequence_of_samples(
     return sequence_of_variable_name_sets[0]
 
 
+def _merge_along_axis(
+    sequence_of_samples: tp.Sequence[dict[str, np.ndarray]],
+    concat_axis: int,
+    fixed_axis: int,
+    fixed_axis_label: str,
+) -> dict[str, np.ndarray]:
+    """Validate inputs and concatenate sample arrays along a given axis.
+
+    Parameters
+    ----------
+    sequence_of_samples : sequence of dict[str, numpy.ndarray]
+        Sample dictionaries to merge.
+    concat_axis : int
+        Axis along which to concatenate (1 for iterations, 2 for chains).
+    fixed_axis : int
+        Axis that must be consistent across all samples (2 for chains,
+        1 for iterations).
+    fixed_axis_label : str
+        Human-readable label for the fixed axis (used in error messages).
+
+    Returns
+    -------
+    dict[str, numpy.ndarray]
+        Merged sample dictionary.
+
+    Raises
+    ------
+    ValueError
+        If variable dimensions or the fixed axis are inconsistent.
+    """
+    _check_sequence_of_chains_present(sequence_of_samples)
+
+    variable_names = _verify_and_get_variable_names_from_sequence_of_samples(
+        sequence_of_samples
+    )
+
+    merged_samples = {}
+    for variable_name in variable_names:
+        arrays = [s[variable_name] for s in sequence_of_samples]
+        shapes = [a.shape for a in arrays]
+        param_dim = shapes[0][0]
+
+        if not all(s[0] == param_dim for s in shapes):
+            raise ValueError(
+                f"The dimension of {variable_name} is inconsistent between samples."
+            )
+
+        fixed_value = shapes[0][fixed_axis]
+        if not all(s[fixed_axis] == fixed_value for s in shapes):
+            raise ValueError(f"The {fixed_axis_label} is inconsistent across samples.")
+
+        merged_samples[variable_name] = np.concatenate(arrays, axis=concat_axis)
+
+    return merged_samples
+
+
 def merge_consecutive_chains(
     sequence_of_samples: tp.Sequence[dict[str, np.ndarray]],
 ) -> dict[str, np.ndarray]:
@@ -211,37 +267,12 @@ def merge_consecutive_chains(
         If variable dimensions or chain counts are inconsistent, or if
         the input sequence is empty or ``None``.
     """
-
-    _check_sequence_of_chains_present(sequence_of_samples)
-
-    merged_samples = {}
-
-    variable_names = _verify_and_get_variable_names_from_sequence_of_samples(
-        sequence_of_samples
+    return _merge_along_axis(
+        sequence_of_samples,
+        concat_axis=1,
+        fixed_axis=2,
+        fixed_axis_label="number of chains",
     )
-
-    for variable_name in variable_names:
-        sequence_of_shapes = [
-            sample_chains[variable_name].shape for sample_chains in sequence_of_samples
-        ]
-
-        sequence_of_numpy_arrays = [
-            sample_chains[variable_name] for sample_chains in sequence_of_samples
-        ]
-
-        parameter_dimension, _, number_of_chains = sequence_of_shapes[0]
-
-        if not all(shape[0] == parameter_dimension for shape in sequence_of_shapes):
-            raise ValueError(
-                f"The dimension of {variable_name} is inconsistent between samples."
-            )
-
-        if not all(shape[2] == number_of_chains for shape in sequence_of_shapes):
-            raise ValueError("The number of chains is inconsistent across samples.")
-
-        merged_samples[variable_name] = np.concatenate(sequence_of_numpy_arrays, axis=1)
-
-    return merged_samples
 
 
 def merge_parallel_chains(
@@ -273,33 +304,9 @@ def merge_parallel_chains(
         If variable dimensions or chain lengths are inconsistent, or if
         the input sequence is empty or ``None``.
     """
-    _check_sequence_of_chains_present(sequence_of_samples)
-
-    merged_samples = {}
-
-    variable_names = _verify_and_get_variable_names_from_sequence_of_samples(
-        sequence_of_samples
+    return _merge_along_axis(
+        sequence_of_samples,
+        concat_axis=2,
+        fixed_axis=1,
+        fixed_axis_label="chain lengths",
     )
-
-    for variable_name in variable_names:
-        sequence_of_shapes = [
-            sample_chains[variable_name].shape for sample_chains in sequence_of_samples
-        ]
-
-        sequence_of_numpy_arrays = [
-            sample_chains[variable_name] for sample_chains in sequence_of_samples
-        ]
-
-        parameter_dimension, chain_length, _ = sequence_of_shapes[0]
-
-        if not all(shape[0] == parameter_dimension for shape in sequence_of_shapes):
-            raise ValueError(
-                f"The dimension of {variable_name} is inconsistent between samples."
-            )
-
-        if not all(shape[1] == chain_length for shape in sequence_of_shapes):
-            raise ValueError("The chain lengths are inconsistent across samples.")
-
-        merged_samples[variable_name] = np.concatenate(sequence_of_numpy_arrays, axis=2)
-
-    return merged_samples

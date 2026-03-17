@@ -27,6 +27,52 @@ from .chain_utilities import merge_consecutive_chains
 from .model import Model
 
 
+def _compute_min_ess(
+    samples: dict[str, np.ndarray],
+    var_names: list[str] | None = None,
+) -> float:
+    """Compute the minimum effective sample size across monitored variables.
+
+    Parameters
+    ----------
+    samples : dict[str, numpy.ndarray]
+        Sample dictionary with PyJAGS shape convention.
+    var_names : list[str], optional
+        Variables to check. ``None`` means all.
+
+    Returns
+    -------
+    float
+        Minimum ESS across all monitored variables.
+    """
+    idata = from_pyjags(samples)
+    ess = az.ess(idata, var_names=var_names)
+    return min(float(ess[var]) for var in ess.data_vars)
+
+
+def _compute_max_rhat_deviation(
+    samples: dict[str, np.ndarray],
+    var_names: list[str] | None = None,
+) -> float:
+    """Compute the maximum R-hat deviation from 1.0 across monitored variables.
+
+    Parameters
+    ----------
+    samples : dict[str, numpy.ndarray]
+        Sample dictionary with PyJAGS shape convention.
+    var_names : list[str], optional
+        Variables to check. ``None`` means all.
+
+    Returns
+    -------
+    float
+        Maximum absolute deviation of R-hat from 1.0.
+    """
+    idata = from_pyjags(samples)
+    rhat = az.rhat(idata, var_names=var_names)
+    return max(abs(float(rhat[var]) - 1.0) for var in rhat.data_vars)
+
+
 class EffectiveSampleSizeCriterion:
     """Convergence criterion based on minimum effective sample size.
 
@@ -93,15 +139,12 @@ class EffectiveSampleSizeCriterion:
             ``True`` if ESS exceeds the threshold for all monitored
             variables.
         """
-        idata = from_pyjags(samples)
-        ess = az.ess(idata, var_names=self.variable_names)
-
-        minimum_ess = min(float(ess[var]) for var in ess.data_vars)
+        min_ess = _compute_min_ess(samples, self.variable_names)
 
         if verbose:
-            print(f"minimum ess = {minimum_ess}")
+            print(f"minimum ess = {min_ess}")
 
-        return minimum_ess >= self.minimum_ess
+        return min_ess >= self.minimum_ess
 
 
 class RHatDeviationCriterion:
@@ -175,17 +218,12 @@ class RHatDeviationCriterion:
             ``True`` if R-hat is within the allowed deviation of 1.0
             for all monitored variables.
         """
-        idata = from_pyjags(samples)
-        rhat = az.rhat(idata, var_names=self.variable_names)
-
-        maximum_rhat_deviation = max(
-            abs(float(rhat[var]) - 1.0) for var in rhat.data_vars
-        )
+        max_dev = _compute_max_rhat_deviation(samples, self.variable_names)
 
         if verbose:
-            print(f"maximum rhat deviation = {maximum_rhat_deviation}")
+            print(f"maximum rhat deviation = {max_dev}")
 
-        return maximum_rhat_deviation <= self.maximum_rhat_deviation
+        return max_dev <= self.maximum_rhat_deviation
 
 
 class EffectiveSampleSizeAndRHatCriterion:
@@ -277,24 +315,14 @@ class EffectiveSampleSizeAndRHatCriterion:
             ``True`` if ESS exceeds the threshold *and* R-hat is within
             the allowed deviation of 1.0 for all monitored variables.
         """
-        idata = from_pyjags(samples)
-        ess = az.ess(idata, var_names=self.variable_names)
+        min_ess = _compute_min_ess(samples, self.variable_names)
+        max_dev = _compute_max_rhat_deviation(samples, self.variable_names)
 
-        minimum_ess = min(float(ess[var]) for var in ess.data_vars)
-
-        rhat = az.rhat(idata, var_names=self.variable_names)
-
-        maximum_rhat_deviation = max(
-            abs(float(rhat[var]) - 1.0) for var in rhat.data_vars
-        )
         if verbose:
-            print(f"minimum ess = {minimum_ess}")
-            print(f"maximum rhat deviation = {maximum_rhat_deviation}")
+            print(f"minimum ess = {min_ess}")
+            print(f"maximum rhat deviation = {max_dev}")
 
-        return (
-            minimum_ess >= self.minimum_ess
-            and maximum_rhat_deviation <= self.maximum_rhat_deviation
-        )
+        return min_ess >= self.minimum_ess and max_dev <= self.maximum_rhat_deviation
 
 
 IterationFunctionType = tp.Callable[[dict[str, np.ndarray], bool, int], None]

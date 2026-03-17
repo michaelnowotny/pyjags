@@ -408,26 +408,80 @@ class Model:
 
         check_locale_compatibility()
 
-        # Merge seed into init if provided.
-        if seed is not None:
-            if init is not None:
-                # Check that init doesn't already contain RNG configuration.
-                inits = [init] if isinstance(init, collections.abc.Mapping) else init
-                for d in inits:
-                    if any(k in d for k in (".RNG.name", ".RNG.seed", ".RNG.state")):
-                        raise ValueError(
-                            "Cannot specify both 'seed' and RNG keys "
-                            "('.RNG.name', '.RNG.seed', '.RNG.state') in 'init'."
-                        )
-            seed_inits = _seed_to_chain_inits(seed, chains)
-            if init is None:
-                init = seed_inits
-            elif isinstance(init, collections.abc.Mapping):
-                init = [{**init, **si} for si in seed_inits]
-            else:
-                init = [{**d, **si} for d, si in zip(init, seed_inits, strict=True)]
+        init = self._merge_seed_into_init(seed, init, chains)
+        self._setup_console(
+            chains, threads, chains_per_thread, progress_bar, refresh_seconds
+        )
 
-        # Ensure that default modules are loaded.
+        with model_path(file, code, encoding) as path:
+            try:
+                self.console.checkModel(path)
+            except JagsError as e:
+                raise _annotate_jags_error(e, code) from None
+
+        self._init_compile(data, generate_data)
+        self._init_parameters(init)
+        self.console.initialize()
+        if adapt:
+            self.adapt(adapt)
+
+    @staticmethod
+    def _merge_seed_into_init(seed, init, chains):
+        """Merge seed-derived RNG configuration into the init dictionaries.
+
+        Parameters
+        ----------
+        seed : int or None
+            Master seed for reproducible sampling.
+        init : dict, list of dicts, or None
+            User-provided initial values.
+        chains : int
+            Number of chains.
+
+        Returns
+        -------
+        dict, list of dicts, or None
+            The init dictionaries with RNG entries merged in, or the
+            original init if no seed was provided.
+        """
+        if seed is None:
+            return init
+
+        if init is not None:
+            inits = [init] if isinstance(init, collections.abc.Mapping) else init
+            for d in inits:
+                if any(k in d for k in (".RNG.name", ".RNG.seed", ".RNG.state")):
+                    raise ValueError(
+                        "Cannot specify both 'seed' and RNG keys "
+                        "('.RNG.name', '.RNG.seed', '.RNG.state') in 'init'."
+                    )
+
+        seed_inits = _seed_to_chain_inits(seed, chains)
+        if init is None:
+            return seed_inits
+        elif isinstance(init, collections.abc.Mapping):
+            return [{**init, **si} for si in seed_inits]
+        else:
+            return [{**d, **si} for d, si in zip(init, seed_inits, strict=True)]
+
+    def _setup_console(
+        self, chains, threads, chains_per_thread, progress_bar, refresh_seconds
+    ):
+        """Configure console, threading, and progress bar.
+
+        Parameters
+        ----------
+        chains : int
+            Number of MCMC chains.
+        threads : int
+            Number of threads for parallel execution.
+        chains_per_thread : int
+            Maximum chains per Console instance.
+        progress_bar : bool
+            Whether to show a progress bar.
+        refresh_seconds : float or None
+            Progress bar refresh interval.
+        """
         load_module("basemod")
         load_module("bugs")
         load_module("lecuyer")
@@ -444,18 +498,6 @@ class Model:
             self.console = MultiConsole(self.chains, chains_per_thread)
         else:
             self.console = Console()
-
-        with model_path(file, code, encoding) as path:
-            try:
-                self.console.checkModel(path)
-            except JagsError as e:
-                raise _annotate_jags_error(e, code) from None
-
-        self._init_compile(data, generate_data)
-        self._init_parameters(init)
-        self.console.initialize()
-        if adapt:
-            self.adapt(adapt)
 
     def _init_compile(self, data, generate_data):
         """Compile the model with observed data."""

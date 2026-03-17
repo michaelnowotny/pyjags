@@ -72,15 +72,15 @@ class DiffDIC:
         """
         return self._delta
 
-    def __str__(self):
+    def __repr__(self):
         """Return a human-readable summary of the DIC difference."""
         result = f"Difference: {np.sum(self.delta)}\n"
         result += f"Sample standard error: {np.sqrt(self._n) * np.std(self.delta)}"
         return result
 
-    def __repr__(self):
+    def __str__(self):
         """Return the string representation of the DIC difference."""
-        return self.__str__()
+        return self.__repr__()
 
 
 class DIC:
@@ -211,13 +211,13 @@ class DIC:
 
         return DiffDIC(delta)
 
-    def __str__(self):
+    def __repr__(self):
         """Return a human-readable DIC summary report."""
         return self.construct_report()
 
-    def __repr__(self):
+    def __str__(self):
         """Return the string representation of the DIC object."""
-        return self.__str__()
+        return self.__repr__()
 
 
 def dic_samples(model, n_iter, thin=1, type="pD"):
