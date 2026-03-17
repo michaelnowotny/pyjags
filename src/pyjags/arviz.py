@@ -167,7 +167,7 @@ def from_pyjags(
         data["constant_data"] = dict(constant_data)
 
     result = az.from_dict(
-        data,
+        **data,
         sample_dims=["chain", "draw"],
         save_warmup=save_warmup if save_warmup and warmup_iterations > 0 else None,
         coords=coords,

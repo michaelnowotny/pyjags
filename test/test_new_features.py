@@ -275,13 +275,13 @@ class TestFromPyjagsEnhancements:
         samples = {"mu": np.random.randn(1, 100, 2)}
         obs = {"y": np.array([1.0, 2.0, 3.0])}
         idata = pyjags.from_pyjags(samples, observed_data=obs)
-        assert "observed_data" in [str(n) for n in idata.children]
+        assert "observed_data" in [str(n) for n in idata.groups()]
 
     def test_constant_data_group(self):
         samples = {"mu": np.random.randn(1, 100, 2)}
         const = {"N": np.array(20)}
         idata = pyjags.from_pyjags(samples, constant_data=const)
-        assert "constant_data" in [str(n) for n in idata.children]
+        assert "constant_data" in [str(n) for n in idata.groups()]
 
     def test_metadata_attributes(self):
         samples = {"mu": np.random.randn(1, 100, 2)}
@@ -291,7 +291,7 @@ class TestFromPyjagsEnhancements:
     def test_backward_compatible(self):
         samples = {"mu": np.random.randn(1, 100, 2)}
         idata = pyjags.from_pyjags(samples)
-        assert "posterior" in [str(n) for n in idata.children]
+        assert "posterior" in [str(n) for n in idata.groups()]
 
 
 class TestWarnConvergence:
