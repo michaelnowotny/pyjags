@@ -36,21 +36,117 @@ migrating to Python can use their existing models unchanged.
 **Lightweight.** PyJAGS depends only on numpy, arviz, and h5py. Install with
 `pip install pyjags` and pre-built wheels for Linux and macOS.
 
+**Information-theoretic diagnostics.** With the optional
+[Divergence](https://github.com/michaelnowotny/divergence) package, PyJAGS
+offers diagnostics that go beyond R-hat: information gain (how much did the
+data teach us?), chain divergence (are my chains truly sampling the same
+distribution?), Bayesian surprise (which observations are outliers?), and
+prior sensitivity analysis -- all from a single `InferenceData` object.
+
+## Quick Start
+
+```python
+import pyjags
+import arviz as az
+
+# Define a model in the BUGS language
+model_code = """
+model {
+    mu ~ dnorm(0, 0.001)
+    sigma ~ dunif(0, 100)
+    tau <- pow(sigma, -2)
+    for (i in 1:N) {
+        y[i] ~ dnorm(mu, tau)
+    }
+}
+"""
+
+# Fit the model
+model = pyjags.Model(code=model_code, data=dict(y=y, N=len(y)),
+                     chains=4, adapt=1000, seed=42)
+model.sample(1000, vars=[])                         # burn-in
+samples = model.sample(5000, vars=["mu", "sigma"])   # production
+
+# Analyze with ArviZ
+idata = pyjags.from_pyjags(samples)
+az.summary(idata)
+az.plot_trace(idata)
+```
+
 ## Features
 
-PyJAGS adds the following features on top of JAGS:
-
+### Core Sampling
 * Multicore support for parallel simulation of multiple Markov chains
-* Built-in ArviZ integration via `pyjags.from_pyjags()` for diagnostics and visualization
-* Reproducible sampling via a single `seed` parameter
+* Reproducible sampling via a single `seed` parameter (`numpy.random.SeedSequence`)
 * Generator-based sampling with `iter_sample()` for live convergence monitoring
+* Incremental sampling with `sample_more()` and automatic convergence detection
 * Standalone model syntax validation with `check_model()`
-* Incremental sampling with automatic convergence detection (ESS and R-hat criteria)
+* `pathlib.Path` support for model files
+
+### ArviZ Integration
+* `pyjags.from_pyjags()` converts samples to ArviZ `InferenceData` with
+  observed data, constant data, prior samples, and log-likelihood groups
+* `pyjags.loo()` and `pyjags.compare()` for model comparison via PSIS-LOO
+* `pyjags.summary()` for quick posterior summaries
+* `pyjags.dic_samples()` for Deviance Information Criterion
+
+### Advanced Diagnostics (optional, via [Divergence](https://github.com/michaelnowotny/divergence))
+
+Install with `pip install pyjags[diagnostics]` to unlock:
+
+* `pyjags.diagnostics.information_gain()` -- KL divergence from prior to posterior:
+  how much did each parameter learn from the data?
+* `pyjags.diagnostics.convergence_report()` -- R-hat + ESS + pairwise chain
+  energy distance in one call
+* `pyjags.diagnostics.bayesian_surprise()` -- per-observation surprise scores
+  for outlier and influence detection
+* `pyjags.diagnostics.model_divergence()` -- distributional comparison between
+  two models' posterior predictives
+* `pyjags.diagnostics.prior_sensitivity()` -- quantify how much your conclusions
+  depend on the prior
+* `pyjags.diagnostics.uncertainty_decomposition()` -- separate aleatoric
+  (irreducible noise) from epistemic (parameter uncertainty)
+
+```python
+from pyjags.diagnostics import information_gain, convergence_report
+
+idata = pyjags.from_pyjags(posterior_samples, prior=prior_samples)
+
+# How much did the data teach us?
+ig = information_gain(idata)
+# {'mu': 3.98, 'sigma': 4.59}  -- substantial learning on both parameters
+
+# Comprehensive convergence check
+report = convergence_report(idata)
+print(f"Converged: {report['converged']}, max R-hat: {report['max_rhat']:.4f}")
+```
+
+### Persistence and Utilities
 * Saving and restoring MCMC sample chains to/from HDF5 files
-* Merging samples along iterations or across chains for resumed sampling
+* Merging samples along iterations or across chains
 * PEP 561 `py.typed` marker for IDE and type checker support
 
 License: GPLv2
+
+## Who Is PyJAGS For?
+
+**Coming from R?** If you have used JAGS, WinBUGS, or OpenBUGS in R, your
+BUGS model files work unchanged in PyJAGS. You get the same sampler with
+Python's data science ecosystem (numpy, pandas, matplotlib, ArviZ).
+
+**New to Bayesian statistics?** The [Getting Started](notebooks/Getting%20Started.ipynb)
+notebook walks you through your first Bayesian model in minutes. PyJAGS's
+model-in-a-string approach is the gentlest on-ramp to MCMC: write the
+probability model, pass your data, sample.
+
+**Bayesian veteran?** PyJAGS complements HMC-based tools. Use it for models
+with discrete parameters, mixture components, and change-points where JAGS's
+Gibbs sampler has a structural advantage. The Divergence integration gives you
+information-theoretic diagnostics that no other package provides.
+
+**Educator?** We are building a comprehensive Bayesian statistics curriculum
+as Jupyter notebooks, powered by PyJAGS and enriched with historical narrative
+and information-theoretic analysis via Divergence. See the roadmap below.
 
 ## Compatibility
 
@@ -63,7 +159,7 @@ License: GPLv2
 | Linux | Debian/Ubuntu (tested), other distributions (untested) |
 
 > **Note:** Python 3.10 and 3.11 were supported in earlier releases but are no longer
-> supported because ArviZ 1.0 — a core dependency — requires Python 3.12+.
+> supported because ArviZ 1.0 -- a core dependency -- requires Python 3.12+.
 
 ## Installation
 
@@ -120,6 +216,9 @@ source .venv/bin/activate
 
 # Install PyJAGS
 uv pip install pyjags
+
+# Optional: install advanced diagnostics (Divergence integration)
+uv pip install pyjags[diagnostics]
 ```
 
 To install from source (for development):
@@ -141,7 +240,7 @@ Install JAGS using your distribution's package manager:
 # Debian/Ubuntu
 sudo apt-get install jags pkg-config
 
-# Fedora/RHEL (untested — package names may differ)
+# Fedora/RHEL (untested -- package names may differ)
 sudo dnf install jags jags-devel pkgconf
 ```
 
@@ -196,7 +295,7 @@ this kernel.
 
 PyJAGS includes a built-in converter for [ArviZ](https://www.arviz.org/) 1.0+.
 Use `pyjags.from_pyjags()` to convert sample dictionaries returned by
-`Model.sample()` into ArviZ `DataTree` objects for diagnostics and visualization:
+`Model.sample()` into ArviZ `InferenceData` objects for diagnostics and visualization:
 
 ```python
 import pyjags
@@ -206,14 +305,31 @@ model = pyjags.Model(code=model_code, data=data, chains=4)
 model.sample(1000, vars=[])                     # burn-in
 samples = model.sample(5000, vars=['mu', 'sigma'])
 
-idata = pyjags.from_pyjags(samples)             # -> xarray.DataTree
+idata = pyjags.from_pyjags(
+    samples,
+    prior=prior_samples,                        # optional
+    observed_data={"y": y},                     # optional
+    constant_data={"N": np.array(len(y))},      # optional
+)
+
 az.summary(idata)
 az.plot_trace(idata)
 ```
 
-The converter also supports prior samples, log-likelihood extraction, and warmup
-splitting. See the [Eight Schools](notebooks/Eight%20Schools.ipynb) notebook for a
+The converter supports prior samples, log-likelihood extraction, observed and
+constant data groups, warmup splitting, and automatic metadata attributes.
+See the [Eight Schools](notebooks/Eight%20Schools.ipynb) notebook for a
 complete example.
+
+## Ecosystem
+
+PyJAGS is part of a growing ecosystem of tools for Bayesian analysis in Python:
+
+* **[ArviZ](https://www.arviz.org/)** -- diagnostics and visualization (built in)
+* **[Divergence](https://github.com/michaelnowotny/divergence)** -- information-theoretic
+  measures: KL divergence, Jensen-Shannon, Hellinger, total variation, MMD,
+  Wasserstein, Renyi, and more. The `pyjags.diagnostics` module provides a seamless
+  bridge between PyJAGS and Divergence for Bayesian-specific analyses.
 
 ## Development Environment (jagslab)
 
@@ -295,7 +411,7 @@ immediately thanks to the editable install. However, **after editing
 
 The `.env` file (created from `.env.example`) controls environment settings:
 
-- `JAGSLAB_PORT` — Host port for Jupyter Lab (default: `8888`)
+- `JAGSLAB_PORT` -- Host port for Jupyter Lab (default: `8888`)
 
 If `.env` does not exist when you run a `jagslab` command, it is automatically
 created from `.env.example`.
@@ -351,8 +467,9 @@ pip install cmake
 
 ## Useful Links
 * Package on the Python Package Index <https://pypi.python.org/pypi/pyjags>
-* Project page on github <https://github.com/michaelnowotny/pyjags>
+* Project page on GitHub <https://github.com/michaelnowotny/pyjags>
 * JAGS manual and examples <http://sourceforge.net/projects/mcmc-jags/files/>
+* Divergence package <https://github.com/michaelnowotny/divergence>
 
 
 ## Acknowledgements
