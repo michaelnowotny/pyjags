@@ -204,7 +204,7 @@ class TestFromPyjags:
         samples = {"mu": np.random.randn(1, iterations, chains)}
         idata = from_pyjags(samples, save_warmup=False, warmup_iterations=warmup)
         assert dict(idata["posterior"].sizes)["draw"] == 150
-        assert "warmup_posterior" not in [c for c in idata.groups()]
+        assert "warmup_posterior" not in [c for c in idata.children]
 
     def test_warmup_saved_with_log_likelihood(self):
         """Warmup + log_likelihood combined: both should be split correctly."""
@@ -242,7 +242,7 @@ class TestFromPyjags:
         )
         assert dict(idata["posterior"].sizes)["draw"] == 150
         assert dict(idata["log_likelihood"].sizes)["draw"] == 150
-        assert "warmup_posterior" not in [c for c in idata.groups()]
+        assert "warmup_posterior" not in [c for c in idata.children]
 
     def test_pyjags_public_api(self):
         """from_pyjags should be importable from the top-level pyjags package."""
