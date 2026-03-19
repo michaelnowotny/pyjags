@@ -1,0 +1,42 @@
+# Copyright (C) 2026 Michael Nowotny
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+name: Docs
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install JAGS
+        run: sudo apt-get update && sudo apt-get install -y jags
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+          pip install mkdocs-material mkdocstrings[python] mkdocs-jupyter
+
+      - name: Build and deploy docs
+        run: mkdocs gh-deploy --force

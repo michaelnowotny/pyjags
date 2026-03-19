@@ -1,0 +1,98 @@
+site_name: PyJAGS
+site_description: "From prior to posterior -- Bayesian MCMC in Python"
+site_url: https://michaelnowotny.github.io/pyjags/
+repo_url: https://github.com/michaelnowotny/pyjags
+repo_name: michaelnowotny/pyjags
+
+theme:
+  name: material
+  logo: assets/logo.jpg
+  favicon: assets/logo.jpg
+  palette:
+    - scheme: default
+      primary: blue
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            members_order: source
+            heading_level: 3
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+  - mkdocs-jupyter:
+      include_source: true
+      execute: false
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - admonition
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - Tutorials:
+    - "1. The Reverend's Question": notebooks/Getting Started.ipynb
+    - "2. The Paradox of Shrinkage": notebooks/Eight Schools.ipynb
+    - "3. The Wells of Bangladesh": notebooks/Logistic Regression.ipynb
+    - "4. The Hidden Cost of Every Trade": notebooks/Trading Cost Estimation.ipynb
+    - "5. When It Rains, It Pours": notebooks/Advanced Functionality.ipynb
+  - User Guide:
+    - BUGS Language: guide/bugs-language.md
+    - ArviZ Integration: guide/arviz.md
+    - Advanced Diagnostics: guide/divergence.md
+    - Parallel Sampling: guide/parallel.md
+    - Persistence (HDF5): guide/persistence.md
+  - API Reference:
+    - Overview: api/index.md
+    - Model: api/model.md
+    - ArviZ Conversion: api/arviz.md
+    - Chain Utilities: api/chain_utilities.md
+    - Convergence Criteria: api/convergence.md
+    - DIC: api/dic.md
+    - I/O: api/io.md
+    - Diagnostics: api/diagnostics.md
+    - Modules: api/modules.md
+  - Changelog: changelog.md
