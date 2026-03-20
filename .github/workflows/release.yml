@@ -47,6 +47,7 @@ jobs:
   build-wheels-linux:
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: ubuntu-latest
@@ -76,12 +77,15 @@ jobs:
   build-wheels-macos:
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: macos-latest
             arch: arm64
-          - runner: macos-15
+            deployment_target: "14.0"
+          - runner: macos-13
             arch: x86_64
+            deployment_target: "13.0"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,9 +96,9 @@ jobs:
 
       - uses: pypa/cibuildwheel@v3.1
         env:
-          CIBW_BUILD: "cp312-macosx* cp313-macosx* cp314-macosx*"
+          CIBW_BUILD: "cp312-macosx* cp313-macosx*"
           CIBW_ARCHS_MACOS: ${{ matrix.arch }}
-          MACOSX_DEPLOYMENT_TARGET: "15.0"
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment_target }}
 
       - uses: actions/upload-artifact@v4
         with:
