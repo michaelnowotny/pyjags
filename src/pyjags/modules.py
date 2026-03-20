@@ -190,17 +190,43 @@ def _locate_via_multiarch():
     return None
 
 
+def _bundled_modules_dir():
+    """Check for JAGS modules bundled inside the installed package.
+
+    When PyJAGS is installed from a wheel (e.g., a manylinux wheel
+    built by cibuildwheel), the JAGS module shared libraries are
+    bundled in ``pyjags/jags_modules/`` alongside the extension.
+    ``auditwheel`` patches their ``NEEDED`` entries to reference the
+    vendored ``libjags``, so they share the same JAGS library instance
+    as ``console.cpython-*.so``.
+
+    Returns
+    -------
+    str or None
+        Path to the bundled modules directory, or ``None`` if no
+        bundled modules are present.
+    """
+    pkg_dir = os.path.dirname(__file__)
+    candidate = os.path.join(pkg_dir, "jags_modules")
+    if os.path.isdir(candidate):
+        ext = ".dylib" if sys.platform == "darwin" else ".so"
+        if any(f.endswith(ext) for f in os.listdir(candidate)):
+            return candidate
+    return None
+
+
 def locate_modules_dir():
     """Locate the JAGS modules directory using all available strategies.
 
     Tries the following strategies in order:
 
     1. ``JAGS_MODULE_PATH`` environment variable (explicit override)
-    2. Shared-object inspection (finds libjags in the current process)
-    3. ``pkg-config --variable=moduledir jags``
-    4. Conda prefix
-    5. Debian/Ubuntu multiarch paths (``dpkg-architecture``)
-    6. Common system paths (``/usr/lib``, ``/usr/local/lib``,
+    2. Bundled modules (wheel install with vendored libjags)
+    3. Shared-object inspection (finds libjags in the current process)
+    4. ``pkg-config --variable=moduledir jags``
+    5. Conda prefix
+    6. Debian/Ubuntu multiarch paths (``dpkg-architecture``)
+    7. Common system paths (``/usr/lib``, ``/usr/local/lib``,
        ``/opt/homebrew/lib``)
 
     Returns
@@ -217,17 +243,23 @@ def locate_modules_dir():
         logger.info("Using JAGS modules from JAGS_MODULE_PATH: %s", env_path)
         return env_path
 
-    # 2. Shared object inspection (works when libjags is loaded)
+    # 2. Bundled modules (wheel with vendored libjags)
+    bundled = _bundled_modules_dir()
+    if bundled:
+        logger.info("Using bundled JAGS modules: %s", bundled)
+        return bundled
+
+    # 3. Shared object inspection (works when libjags is loaded)
     result = locate_modules_dir_using_shared_objects()
     if result and os.path.isdir(result):
         return result
 
-    # 3. pkg-config (the most reliable way on properly configured systems)
+    # 4. pkg-config (the most reliable way on properly configured systems)
     pkg_result = _locate_via_pkg_config()
     if pkg_result:
         return pkg_result
 
-    # 4. Conda prefix
+    # 5. Conda prefix
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
         conda_modules = os.path.join(conda_prefix, "lib", "JAGS", f"modules-{major}")
@@ -235,12 +267,12 @@ def locate_modules_dir():
             logger.info("Using JAGS modules from conda: %s", conda_modules)
             return conda_modules
 
-    # 5. Debian/Ubuntu multiarch paths
+    # 6. Debian/Ubuntu multiarch paths
     multiarch_result = _locate_via_multiarch()
     if multiarch_result:
         return multiarch_result
 
-    # 6. Common system paths (including multiarch patterns)
+    # 7. Common system paths (including multiarch patterns)
     for lib_dir in [
         "/usr/lib",
         "/usr/local/lib",

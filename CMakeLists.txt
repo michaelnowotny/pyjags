@@ -224,6 +224,58 @@ endif()
 
 install(TARGETS console DESTINATION pyjags)
 
+# ---------------------------------------------------------------------------
+# Bundle JAGS modules into the wheel
+# ---------------------------------------------------------------------------
+# JAGS modules (basemod, bugs, dic, etc.) are plugins loaded at runtime via
+# dlopen.  They depend on libjags.so.  When building a manylinux wheel,
+# auditwheel vendors libjags into pyjags.libs/ and patches NEEDED entries.
+# If we also include the JAGS module .so files, auditwheel patches them too,
+# so they reference the same vendored libjags.  This makes the wheel fully
+# self-contained -- no system JAGS installation required at runtime.
+#
+# For source/editable installs the modules directory is empty and the
+# existing runtime discovery in modules.py finds system-installed modules.
+# ---------------------------------------------------------------------------
+
+# Locate the JAGS modules directory
+set(_JAGS_MODULES_DIR "")
+if(PkgConfig_FOUND)
+    execute_process(
+        COMMAND pkg-config --variable=moduledir jags
+        OUTPUT_VARIABLE _JAGS_MODULES_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+        RESULT_VARIABLE _pkgconf_moddir_result
+    )
+    if(NOT _pkgconf_moddir_result EQUAL 0)
+        set(_JAGS_MODULES_DIR "")
+    endif()
+endif()
+
+# Fallback: construct from library directory
+if(NOT _JAGS_MODULES_DIR OR NOT EXISTS "${_JAGS_MODULES_DIR}")
+    if(JAGS_LIBRARY_DIRS)
+        set(_JAGS_MODULES_DIR "${JAGS_LIBRARY_DIRS}/JAGS/modules-4")
+    endif()
+endif()
+
+if(_JAGS_MODULES_DIR AND EXISTS "${_JAGS_MODULES_DIR}")
+    file(GLOB _JAGS_MODULE_SO_FILES "${_JAGS_MODULES_DIR}/*.so")
+    file(GLOB _JAGS_MODULE_DYLIB_FILES "${_JAGS_MODULES_DIR}/*.dylib")
+    list(APPEND _JAGS_MODULE_FILES ${_JAGS_MODULE_SO_FILES} ${_JAGS_MODULE_DYLIB_FILES})
+    if(_JAGS_MODULE_FILES)
+        install(FILES ${_JAGS_MODULE_FILES} DESTINATION pyjags/jags_modules)
+        message(STATUS "Bundling JAGS modules from: ${_JAGS_MODULES_DIR}")
+        list(LENGTH _JAGS_MODULE_FILES _nmodules)
+        message(STATUS "  ${_nmodules} module(s) found")
+    else()
+        message(STATUS "No JAGS module .so files found in: ${_JAGS_MODULES_DIR}")
+    endif()
+else()
+    message(STATUS "JAGS modules directory not found -- modules will not be bundled")
+endif()
+
 # scikit-build-core with wheel.install-dir="." expects the install tree
 # to mirror the wheel layout.  The line above places the .so into a
 # "pyjags/" subdirectory which, combined with wheel.install-dir=".",
