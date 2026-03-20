@@ -24,6 +24,8 @@ import ctypes
 import ctypes.util
 import logging
 import os
+import shutil
+import subprocess
 import sys
 
 from .console import Console
@@ -133,11 +135,73 @@ def locate_modules_dir_using_shared_objects():
     return None
 
 
+def _locate_via_pkg_config():
+    """Try to locate the JAGS modules directory via pkg-config.
+
+    Returns
+    -------
+    str or None
+        Path to the modules directory, or ``None`` if pkg-config is
+        unavailable or doesn't know about JAGS.
+    """
+    if not shutil.which("pkg-config"):
+        return None
+    try:
+        result = subprocess.run(
+            ["pkg-config", "--variable=moduledir", "jags"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            candidate = result.stdout.strip()
+            if os.path.isdir(candidate):
+                logger.info("Using JAGS modules from pkg-config: %s", candidate)
+                return candidate
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def _locate_via_multiarch():
+    """Check Debian/Ubuntu multiarch library paths.
+
+    Returns
+    -------
+    str or None
+        Path to the modules directory, or ``None`` if not found.
+    """
+    major = version()[0]
+    try:
+        result = subprocess.run(
+            ["dpkg-architecture", "-qDEB_HOST_MULTIARCH"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            multiarch = result.stdout.strip()
+            candidate = os.path.join("/usr/lib", multiarch, "JAGS", f"modules-{major}")
+            if os.path.isdir(candidate):
+                logger.info("Using JAGS modules from multiarch path: %s", candidate)
+                return candidate
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
 def locate_modules_dir():
     """Locate the JAGS modules directory using all available strategies.
 
-    Tries shared-object inspection first, then conda prefix, then common
-    system paths.
+    Tries the following strategies in order:
+
+    1. ``JAGS_MODULE_PATH`` environment variable (explicit override)
+    2. Shared-object inspection (finds libjags in the current process)
+    3. ``pkg-config --variable=moduledir jags``
+    4. Conda prefix
+    5. Debian/Ubuntu multiarch paths (``dpkg-architecture``)
+    6. Common system paths (``/usr/lib``, ``/usr/local/lib``,
+       ``/opt/homebrew/lib``)
 
     Returns
     -------
@@ -145,24 +209,45 @@ def locate_modules_dir():
         Path to the modules directory, or ``None`` if not found.
     """
     logger.debug("Locating JAGS module directory.")
+    major = version()[0]
 
-    # Try shared object inspection first (works for system installs)
+    # 1. Environment variable (explicit override)
+    env_path = os.environ.get("JAGS_MODULE_PATH")
+    if env_path and os.path.isdir(env_path):
+        logger.info("Using JAGS modules from JAGS_MODULE_PATH: %s", env_path)
+        return env_path
+
+    # 2. Shared object inspection (works when libjags is loaded)
     result = locate_modules_dir_using_shared_objects()
     if result and os.path.isdir(result):
         return result
 
-    # Fallback: check conda prefix
+    # 3. pkg-config (the most reliable way on properly configured systems)
+    pkg_result = _locate_via_pkg_config()
+    if pkg_result:
+        return pkg_result
+
+    # 4. Conda prefix
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
-        major = version()[0]
         conda_modules = os.path.join(conda_prefix, "lib", "JAGS", f"modules-{major}")
         if os.path.isdir(conda_modules):
             logger.info("Using JAGS modules from conda: %s", conda_modules)
             return conda_modules
 
-    # Fallback: check common system paths
-    major = version()[0]
-    for lib_dir in ["/usr/lib", "/usr/local/lib", "/opt/homebrew/lib"]:
+    # 5. Debian/Ubuntu multiarch paths
+    multiarch_result = _locate_via_multiarch()
+    if multiarch_result:
+        return multiarch_result
+
+    # 6. Common system paths (including multiarch patterns)
+    for lib_dir in [
+        "/usr/lib",
+        "/usr/local/lib",
+        "/opt/homebrew/lib",
+        "/usr/lib/x86_64-linux-gnu",
+        "/usr/lib/aarch64-linux-gnu",
+    ]:
         candidate = os.path.join(lib_dir, "JAGS", f"modules-{major}")
         if os.path.isdir(candidate):
             logger.info("Using JAGS modules from %s", candidate)
@@ -192,7 +277,10 @@ def get_modules_dir():
         modules_dir = locate_modules_dir()
     if modules_dir is None:
         raise RuntimeError(
-            "Could not locate JAGS module directory. Use pyjags.set_modules_dir(path) to configure it manually."
+            "Could not locate JAGS module directory. "
+            "Set the JAGS_MODULE_PATH environment variable to the directory "
+            "containing JAGS module shared libraries (e.g., basemod.so), "
+            "or call pyjags.set_modules_dir(path) before creating a model."
         )
     return modules_dir
 
