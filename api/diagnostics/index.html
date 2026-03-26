@@ -1261,6 +1261,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pyjags.diagnostics.chain_two_sample_test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;chain_two_sample_test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pyjags.diagnostics.information_gain" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1417,6 +1428,17 @@
     <span class="md-ellipsis">
       
         <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;convergence_report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyjags.diagnostics.chain_two_sample_test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;chain_two_sample_test
       
     </span>
   </a>
@@ -1621,6 +1643,170 @@ chains.</p>
           </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="pyjags.diagnostics.chain_two_sample_test" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">chain_two_sample_test</span><span class="p">(</span><span class="n">idata</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">var_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;energy&#39;</span><span class="p">,</span> <span class="n">n_permutations</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#pyjags.diagnostics.chain_two_sample_test" class="headerlink" title="Permanent link">&para;</a></h3>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Pairwise two-sample permutation tests between MCMC chains.</p>
+<p>Upgrades :func:<code>convergence_report</code>'s raw chain divergence values
+to <strong>calibrated p-values</strong>.  A small p-value for chains <em>i</em> and <em>j</em>
+indicates that they are sampling from detectably different
+distributions — a convergence failure that R-hat may miss because
+R-hat only compares the first two moments.</p>
+<p>This test catches multimodal posteriors where some chains miss a
+mode, heavy-tailed distributions where variance-based diagnostics
+are insensitive, and any situation where the full distributional
+shape matters.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>idata</code>
+            </td>
+            <td>
+                  <code><span title="pyjags.arviz.InferenceData">InferenceData</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Inference data with a <code>posterior</code> group containing multiple
+chains.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>var_names</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Parameters to test.  <code>None</code> means all.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Two-sample test statistic.  Default <code>"energy"</code> (energy
+distance — parameter-free, works in any dimension).  Also
+accepts <code>"mmd"</code> (maximum mean discrepancy).</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;energy&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_permutations</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of permutations for the permutation test (default 500).</p>
+              </div>
+            </td>
+            <td>
+                  <code>500</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Random seed for reproducibility of the permutation test.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="divergence.ChainTestResult">ChainTestResult</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Per-parameter results.  Each <code>ChainTestResult</code> contains:</p>
+<p><code>p_value_matrix</code>
+    Pairwise p-values between chains (numpy array).
+<code>statistic_matrix</code>
+    Pairwise test statistic between chains (numpy array).
+<code>min_p_value</code>
+    Minimum off-diagonal p-value (scalar).
+<code>any_significant</code>
+    <code>True</code> if any chain pair differs at the 5% level.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">chain_two_sample_test</span><span class="p">(</span><span class="n">idata</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">var</span><span class="p">,</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">any_significant</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">var</span><span class="si">}</span><span class="s2">: chains differ! min p = </span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">min_p_value</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
 
 
     </div>
