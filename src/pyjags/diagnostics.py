@@ -114,6 +114,74 @@ def convergence_report(
     }
 
 
+def chain_two_sample_test(
+    idata: tp.Any,
+    *,
+    var_names: list[str] | None = None,
+    method: str = "energy",
+    n_permutations: int = 500,
+    seed: int | None = None,
+) -> dict[str, tp.Any]:
+    """Pairwise two-sample permutation tests between MCMC chains.
+
+    Upgrades :func:`convergence_report`'s raw chain divergence values
+    to **calibrated p-values**.  A small p-value for chains *i* and *j*
+    indicates that they are sampling from detectably different
+    distributions — a convergence failure that R-hat may miss because
+    R-hat only compares the first two moments.
+
+    This test catches multimodal posteriors where some chains miss a
+    mode, heavy-tailed distributions where variance-based diagnostics
+    are insensitive, and any situation where the full distributional
+    shape matters.
+
+    Parameters
+    ----------
+    idata : arviz.InferenceData
+        Inference data with a ``posterior`` group containing multiple
+        chains.
+    var_names : list[str], optional
+        Parameters to test.  ``None`` means all.
+    method : str
+        Two-sample test statistic.  Default ``"energy"`` (energy
+        distance — parameter-free, works in any dimension).  Also
+        accepts ``"mmd"`` (maximum mean discrepancy).
+    n_permutations : int
+        Number of permutations for the permutation test (default 500).
+    seed : int, optional
+        Random seed for reproducibility of the permutation test.
+
+    Returns
+    -------
+    dict[str, divergence.ChainTestResult]
+        Per-parameter results.  Each ``ChainTestResult`` contains:
+
+        ``p_value_matrix``
+            Pairwise p-values between chains (numpy array).
+        ``statistic_matrix``
+            Pairwise test statistic between chains (numpy array).
+        ``min_p_value``
+            Minimum off-diagonal p-value (scalar).
+        ``any_significant``
+            ``True`` if any chain pair differs at the 5% level.
+
+    Examples
+    --------
+    >>> result = chain_two_sample_test(idata)
+    >>> for var, res in result.items():
+    ...     if res.any_significant:
+    ...         print(f"{var}: chains differ! min p = {res.min_p_value:.4f}")
+    """
+    div = _import_divergence()
+    return div.chain_two_sample_test(
+        idata,
+        var_names=var_names,
+        method=method,
+        n_permutations=n_permutations,
+        seed=seed,
+    )
+
+
 def information_gain(
     idata: tp.Any,
     *,

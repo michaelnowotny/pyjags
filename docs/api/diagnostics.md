@@ -6,6 +6,8 @@ Install with `pip install pyjags[diagnostics]`.
 
 ::: pyjags.diagnostics.convergence_report
 
+::: pyjags.diagnostics.chain_two_sample_test
+
 ::: pyjags.diagnostics.information_gain
 
 ::: pyjags.diagnostics.bayesian_surprise
