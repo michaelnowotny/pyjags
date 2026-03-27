@@ -264,6 +264,20 @@ PyJAGS is part of a growing ecosystem for Bayesian analysis in Python:
 
   Install with `pip install pyjags[diagnostics]`.
 
+  **GPU acceleration**: Divergence's pairwise distance computations
+  (energy distance, MMD, kernel Stein discrepancy) and permutation
+  tests can run on NVIDIA GPUs via JAX for orders-of-magnitude speedup
+  on large MCMC outputs. To enable GPU support:
+
+  ```bash
+  pip install pyjags[diagnostics] jax[cuda12]
+  ```
+
+  When a CUDA-capable GPU is available, Divergence automatically
+  dispatches to GPU kernels. No code changes needed -- the same
+  `chain_two_sample_test()` call that runs on CPU will use the GPU
+  when available.
+
 ## Troubleshooting
 
 <details>
