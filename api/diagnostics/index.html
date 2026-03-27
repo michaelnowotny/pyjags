@@ -1653,7 +1653,7 @@ chains.</p>
 
 
 <h3 id="pyjags.diagnostics.chain_two_sample_test" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">chain_two_sample_test</span><span class="p">(</span><span class="n">idata</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">var_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;energy&#39;</span><span class="p">,</span> <span class="n">n_permutations</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">chain_two_sample_test</span><span class="p">(</span><span class="n">idata</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">var_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;energy&#39;</span><span class="p">,</span> <span class="n">n_permutations</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#pyjags.diagnostics.chain_two_sample_test" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -1764,6 +1764,25 @@ accepts <code>"mmd"</code> (maximum mean discrepancy).</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>low_memory</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>True</code> (default), use O(N) memory Numba kernels instead
+of precomputing the O(N²) distance matrix.  Essential for
+large chains (N &gt; 10,000) to avoid memory exhaustion.  Slightly
+slower per permutation but avoids the N*N allocation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
             </td>
           </tr>
       </tbody>
