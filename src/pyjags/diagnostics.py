@@ -121,6 +121,7 @@ def chain_two_sample_test(
     method: str = "energy",
     n_permutations: int = 500,
     seed: int | None = None,
+    low_memory: bool = True,
 ) -> dict[str, tp.Any]:
     """Pairwise two-sample permutation tests between MCMC chains.
 
@@ -150,6 +151,11 @@ def chain_two_sample_test(
         Number of permutations for the permutation test (default 500).
     seed : int, optional
         Random seed for reproducibility of the permutation test.
+    low_memory : bool
+        If ``True`` (default), use O(N) memory Numba kernels instead
+        of precomputing the O(N²) distance matrix.  Essential for
+        large chains (N > 10,000) to avoid memory exhaustion.  Slightly
+        slower per permutation but avoids the N*N allocation.
 
     Returns
     -------
@@ -179,6 +185,7 @@ def chain_two_sample_test(
         method=method,
         n_permutations=n_permutations,
         seed=seed,
+        low_memory=low_memory,
     )
 
 
